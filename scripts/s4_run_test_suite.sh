@@ -21,7 +21,7 @@ elif [ -x ".venv/bin/python" ]; then
 fi
 
 echo "--- Running Notebook Tests (pytest) ---" | tee -a "$LOG_FILE"
-"$PYTHON_BIN" -m pytest tests/test_notebooks.py -v 2>&1 | tee -a "$LOG_FILE"
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$PYTHON_BIN" -m pytest tests/test_notebooks.py -v 2>&1 | tee -a "$LOG_FILE"
 
 echo -e "\n--- Running Python Tests (run_all_tests.py) ---" | tee -a "$LOG_FILE"
 "$PYTHON_BIN" tests/run_all_tests.py 2>&1 | tee -a "$LOG_FILE"

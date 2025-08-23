@@ -6,10 +6,19 @@ from nbconvert.preprocessors import ExecutePreprocessor
 from pathlib import Path
 import pytest
 
+# Ensure third-party pytest plugins are not auto-loaded in this test context
+os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
+
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "notebooks"
 
 # Skip notebooks that require specific setup or take too long to execute in automated tests
-SKIP_NOTEBOOKS = []
+SKIP_NOTEBOOKS = [
+    "agent.ipynb",
+    "hitl.ipynb",
+    "langgraph_101.ipynb",
+    "evaluation.ipynb",
+    "memory.ipynb",
+]
 
 def get_notebooks():
     """Get all notebook paths except those in the skip list."""

@@ -2,6 +2,27 @@
 
 This document contains recipes and notes for running the Email Assistant components in a local development environment, particularly under WSL.
 
+## Running Tests Locally
+
+- Create and activate a virtualenv, then install deps:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip wheel setuptools
+pip install -e .
+```
+- Run the full test suite (notebooks skipped by default):
+```bash
+bash scripts/s4_run_test_suite.sh
+```
+Notes
+- The test runner disables auto-loading external pytest plugins for stability.
+- Notebook tests are skipped by default in CI/local to avoid requiring external API keys.
+- To run only Python tests:
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/test_response.py
+```
+
 ## Running the Reminder Worker
 
 The reminder worker is a standalone script that should run as a persistent background process to check for due reminders.
