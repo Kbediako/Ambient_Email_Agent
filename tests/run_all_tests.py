@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 import os
 import subprocess
 import sys
@@ -29,7 +29,7 @@ def main():
     #    is invalid when the Question tool is encountered, causing the test to loop indefinitely
     # These implementations would need updated test datasets and handling logic to be testable
     implementations = [
-        "email_assistant",
+        "email_assistant_hitl_memory_gmail",
     ]
     
     # Determine which implementations to test

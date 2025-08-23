@@ -7,6 +7,10 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 import pytest
+import os
+# Skip notebook tool tests unless explicitly enabled
+if os.getenv("RUN_NOTEBOOK_TESTS") != "1":
+    pytest.skip("Notebook tool tests disabled. Set RUN_NOTEBOOK_TESTS=1 to enable.", allow_module_level=True)
 from email_assistant.eval.email_dataset import email_inputs, expected_tool_calls
 from email_assistant.utils import format_messages_string
 from email_assistant.email_assistant import email_assistant

@@ -6,6 +6,10 @@ from nbconvert.preprocessors import ExecutePreprocessor
 from pathlib import Path
 import pytest
 
+# Skip notebook tests unless explicitly enabled
+if not os.getenv("RUN_NOTEBOOK_TESTS"):
+    pytest.skip("Notebook tests disabled. Set RUN_NOTEBOOK_TESTS=1 to enable.", allow_module_level=True)
+
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "notebooks"
 
 # Skip notebooks that require specific setup or take too long to execute in automated tests

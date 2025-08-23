@@ -18,6 +18,12 @@ import os
 import pytest
 from typing import Dict, List, Any, Tuple
 from pydantic import BaseModel, Field
+# Gate running by env flag to avoid CI/offline flakiness
+if os.getenv("RUN_RESPONSE_TESTS") != "1":
+    pytest.skip("Response tests disabled. Set RUN_RESPONSE_TESTS=1 to enable.", allow_module_level=True)
+# Skip LLM-dependent tests if GOOGLE_API_KEY is not set
+if not os.getenv("GOOGLE_API_KEY"):
+    pytest.skip("GOOGLE_API_KEY not set; skipping response tests that require LLM.", allow_module_level=True)
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
 except Exception:

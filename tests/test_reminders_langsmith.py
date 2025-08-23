@@ -4,6 +4,9 @@ import sys
 import json
 import uuid
 import glob
+# Skip this module unless LangSmith is configured
+if not os.getenv("LANGSMITH_API_KEY"):
+    pytest.skip("LangSmith tests disabled: LANGSMITH_API_KEY not set.", allow_module_level=True)
 from langsmith import Client
 from langsmith.schemas import Dataset, Example
 

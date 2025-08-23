@@ -84,7 +84,7 @@ def test_worker_finds_due_reminders(memory_store: SqliteReminderStore):
          patch('scripts.reminder_worker.get_default_delivery', return_value=mock_delivery):
         
         # Run the worker logic
-        check_reminders()
+        check_reminders(memory_store)
 
     # Assert that send_notification was called exactly once
     mock_delivery.send_notification.assert_called_once()

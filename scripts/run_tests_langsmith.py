@@ -46,7 +46,7 @@ def main(argv: list[str]) -> int:
     default_args = [
         "-v",
         "tests/test_response.py",
-        "--agent-module=email_assistant",
+        "--agent-module=email_assistant_hitl_memory_gmail",
     ]
 
     # Use provided args if any, else defaults
