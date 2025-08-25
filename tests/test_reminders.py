@@ -80,11 +80,9 @@ def test_worker_finds_due_reminders(memory_store: SqliteReminderStore):
     mock_delivery = MagicMock()
 
     # Use patch to replace the factory functions within the scope of this test
-    with patch('scripts.reminder_worker.get_default_store', return_value=memory_store), \
-         patch('scripts.reminder_worker.get_default_delivery', return_value=mock_delivery):
-        
-        # Run the worker logic
-        check_reminders()
+    with patch('scripts.reminder_worker.get_default_delivery', return_value=mock_delivery):
+        # Run the worker logic with explicit store per function signature
+        check_reminders(memory_store)
 
     # Assert that send_notification was called exactly once
     mock_delivery.send_notification.assert_called_once()

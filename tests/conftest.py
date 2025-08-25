@@ -7,9 +7,10 @@ from typing import List, Optional
 
 import pytest
 
-project_root = str(Path(__file__).parent.parent)
-if project_root not in sys.path:
-    sys.path.append(project_root)
+project_root = Path(__file__).parent.parent
+src_path = project_root / "src"
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(src_path))
 
 
 def pytest_addoption(parser):
@@ -17,7 +18,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--agent-module",
         action="store",
-        default="email_assistant_hitl_memory",
+        default="email_assistant",
         help="Specify which email assistant module to test",
     )
 
