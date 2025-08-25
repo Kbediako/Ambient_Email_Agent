@@ -32,7 +32,7 @@ def _make_state_with_question(email_id: str = "abc123"):
     return state
 
 
-def test_gmail_spam_flow_moves_to_spam(monkeypatch):
+def test_gmail_spam_flow_moves_to_spam(monkeypatch, gmail_service):
     import email_assistant.email_assistant_hitl_memory_gmail as mod
 
     store = InMemoryStore()
@@ -49,12 +49,6 @@ def test_gmail_spam_flow_moves_to_spam(monkeypatch):
 
     monkeypatch.setattr(mod, "_maybe_interrupt", fake_interrupt)
 
-    # Monkeypatch mark_as_spam to avoid real Gmail API
-    def fake_mark_as_spam(msg_id):
-        return f"Moved message {msg_id} to Spam."
-
-    monkeypatch.setattr(mod, "mark_as_spam", fake_mark_as_spam)
-
     cmd = mod.interrupt_handler(state, store)
     # Should end the workflow after moving to spam
     assert cmd.goto == mod.END
@@ -63,7 +57,7 @@ def test_gmail_spam_flow_moves_to_spam(monkeypatch):
     assert any("Moved message abc123 to Spam" in (m.get("content") or "") for m in tool_msgs)
 
 
-def test_gmail_spam_flow_non_spam_feedback_no_spam_action(monkeypatch):
+def test_gmail_spam_flow_non_spam_feedback_no_spam_action(monkeypatch, gmail_service):
     import email_assistant.email_assistant_hitl_memory_gmail as mod
 
     store = InMemoryStore()
@@ -75,14 +69,16 @@ def test_gmail_spam_flow_non_spam_feedback_no_spam_action(monkeypatch):
 
     monkeypatch.setattr(mod, "_maybe_interrupt", fake_interrupt)
 
-    # Spy on mark_as_spam to ensure it's not called
+    # Spy by wrapping service method to ensure it's not called
     called = {"v": False}
-
-    def spy_mark_as_spam(msg_id):
+    original = gmail_service.mark_as_spam
+    
+    def wrapper(msg_id):
         called["v"] = True
-        return ""
-
-    monkeypatch.setattr(mod, "mark_as_spam", spy_mark_as_spam)
+        return original(msg_id)
+    
+    # Patch the agent module entry point for mark_as_spam to our wrapper
+    monkeypatch.setattr(mod, "mark_as_spam", wrapper)
 
     cmd = mod.interrupt_handler(state, store)
     # Should not call mark_as_spam

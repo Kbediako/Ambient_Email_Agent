@@ -59,7 +59,7 @@ examples = list(client.list_examples(dataset_name=DATASET_NAME))
 
 
 @pytest.mark.parametrize("example", examples)
-def test_reminder_scenarios_on_langsmith(example: Example):
+def test_reminder_scenarios_on_langsmith(example: Example, gmail_service):
     """Runs the agent on an example from the LangSmith dataset."""
     os.environ["HITL_AUTO_ACCEPT"] = "1"
 

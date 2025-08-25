@@ -2,13 +2,10 @@ import pytest
 from email_assistant.tools.gmail import gmail_tools
 #!/usr/bin/env python
 
+# Route Gmail interactions through the session's gmail_service fixture
 @pytest.fixture(autouse=True)
-def mock_gmail_tools(monkeypatch):
-    """Mock Gmail tools that require authentication."""
-    def dummy_mark_as_read(email_id: str) -> str:
-        print(f"MOCK: Skipped marking email {email_id} as read.")
-        return "Successfully marked email as read (mocked)."
-    monkeypatch.setattr(gmail_tools, "mark_as_read", dummy_mark_as_read)
+def _route_gmail_through_fixture(gmail_service, monkeypatch):
+    monkeypatch.setattr(gmail_tools, "mark_as_read", gmail_service.mark_as_read, raising=True)
 
 
 import uuid
@@ -206,7 +203,7 @@ def create_response_test_cases():
 @pytest.mark.langsmith(output_keys=["expected_calls"])
 # Variable names and a list of tuples with the test cases
 @pytest.mark.parametrize("email_input,email_name,criteria,expected_calls",create_response_test_cases())
-def test_email_dataset_tool_calls(email_input, email_name, criteria, expected_calls):
+def test_email_dataset_tool_calls(email_input, email_name, criteria, expected_calls, gmail_service):
     """Test if email processing contains expected tool calls."""
     # Log minimal inputs for LangSmith (safe noop if plugin disabled)
     try:
@@ -258,7 +255,7 @@ def test_email_dataset_tool_calls(email_input, email_name, criteria, expected_ca
 # Variable names and a list of tuples with the test cases
 # Each test case is (email_input, email_name, criteria, expected_calls)
 @pytest.mark.parametrize("email_input,email_name,criteria,expected_calls",create_response_test_cases())
-def test_response_criteria_evaluation(email_input, email_name, criteria, expected_calls):
+def test_response_criteria_evaluation(email_input, email_name, criteria, expected_calls, gmail_service):
     """Test if a response meets the specified criteria.
     Only runs on emails that require a response.
     """
