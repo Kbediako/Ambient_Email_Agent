@@ -137,7 +137,7 @@ def setup_assistant() -> Tuple[Any, Dict[str, Any], InMemoryStore]:
     
     # Create a thread ID and config
     thread_id = uuid.uuid4()
-    thread_config = {"configurable": {"thread_id": thread_id}}
+    thread_config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 100}
     
     # Compile the graph based on module type
     if AGENT_MODULE in ["email_assistant_hitl_memory", "email_assistant_hitl_memory_gmail"]:
