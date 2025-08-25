@@ -310,10 +310,13 @@ def test_response_criteria_evaluation(email_input, email_name, criteria, expecte
     ])
 
     # Log feedback response
-    t.log_outputs({
-        "justification": eval_result.justification,
-        "response": all_messages_str,
-    })
+    try:
+        t.log_outputs({
+            "justification": eval_result.justification,
+            "response": all_messages_str,
+        })
+    except Exception:
+        pass
         
     # Pass feedback key
     assert eval_result.grade
