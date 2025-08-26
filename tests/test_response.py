@@ -21,6 +21,7 @@ except Exception:
     ChatGoogleGenerativeAI = None  # type: ignore
 
 from langsmith import testing as t
+from langchain_core.runnables import RunnableLambda
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -105,10 +106,10 @@ try:
         raise ImportError("langchain-google-genai is not installed")
     # Encourage deterministic, short, JSON-friendly outputs
     criteria_eval_llm = ChatGoogleGenerativeAI(model=model_name, temperature=0, max_retries=3)
-    criteria_eval_structured_llm = (
-        criteria_eval_llm.with_structured_output(CriteriaGrade)
-        .with_config({"run_name": "LLM as Judge"})
-    )
+    # Wrap structured output to coerce/guard against nulls
+    _judge = criteria_eval_llm.with_structured_output(CriteriaGrade)
+    _judge = _judge | RunnableLambda(lambda x: x or CriteriaGrade(grade=False, justification="Judge returned null."))
+    criteria_eval_structured_llm = _judge.with_config({"run_name": "LLM as Judge"})
 except Exception:
     criteria_eval_llm = None
     criteria_eval_structured_llm = None
