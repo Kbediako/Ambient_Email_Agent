@@ -209,6 +209,10 @@ def robust_criteria_eval(criteria: str, all_messages_str: str, values: Dict[str,
                 {"role": "user", "content": usr_},
             ])
             if result and hasattr(result, "grade") and hasattr(result, "justification"):
+                justification = str(getattr(result, "justification", "")).lower().strip()
+                # Treat sentinel/null-like outputs as a miss and continue to retry/fallback
+                if justification.startswith("judge returned null") or justification in ("null", ""):
+                    raise ValueError("Null judge output")
                 return result
         except Exception:
             pass
