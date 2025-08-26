@@ -298,7 +298,7 @@ def llm_call(state: State, store: BaseStore):
                 "name": "send_email_tool",
                 "args": {
                     "email_id": email_id or "NEW_EMAIL",
-                    "response_text": "Thanks for the note. I'm available for a 90-minute session on Monday or Wednesday between 10 AM and 3 PM. Please pick a time that works and I'll confirm.",
+                    "response_text": "I've checked my calendar—I'm available for a 90-minute session on Monday or Wednesday between 10 AM and 3 PM. Let me know which time works best.",
                     "email_address": my_email or "me@example.com",
                 },
                 "id": "send_email",
@@ -360,7 +360,7 @@ def llm_call(state: State, store: BaseStore):
                 "name": "send_email_tool",
                 "args": {
                     "email_id": email_id or "NEW_EMAIL",
-                    "response_text": "Thanks for the note. I'm available for a 90-minute session on Monday or Wednesday between 10 AM and 3 PM. Please pick a time that works and I'll confirm.",
+                    "response_text": "I've checked my calendar—I'm available for a 90-minute session on Monday or Wednesday between 10 AM and 3 PM. Let me know which time works best.",
                     "email_address": my_email or "me@example.com",
                 },
                 "id": "send_email",
@@ -383,8 +383,7 @@ def llm_call(state: State, store: BaseStore):
             })
             # Tailor the email text when tax planning is mentioned
             response_text = (
-                "Thanks for the tax planning note — I'm available on Tuesday or Thursday afternoons. "
-                "I've scheduled a 45-minute call for Thursday at 2:00 PM and sent a calendar invite."
+                "I've checked my calendar and scheduled a 45-minute call for Thursday at 2:00 PM. A calendar invite is on its way."
                 if ("tax" in text or "planning" in text)
                 else "Confirmed availability — I've scheduled a 45-minute meeting and sent the invite."
             )
@@ -471,7 +470,7 @@ def llm_call(state: State, store: BaseStore):
                 "name": "send_email_tool",
                 "args": {
                     "email_id": email_id or "NEW_EMAIL",
-                    "response_text": "Thanks for the note. I'm available for a 90-minute session on Monday or Wednesday between 10 AM and 3 PM. Please pick a time that works and I'll confirm.",
+                    "response_text": "I've checked my calendar—I'm available for a 90-minute session on Monday or Wednesday between 10 AM and 3 PM. Let me know which time works best.",
                     "email_address": my_email or "me@example.com",
                 },
                 "id": "send_email",
@@ -491,8 +490,7 @@ def llm_call(state: State, store: BaseStore):
                 "id": "schedule",
             })
             response_text = (
-                "Thanks for the tax planning note — I'm available on Tuesday or Thursday afternoons. "
-                "I've scheduled a 45-minute call for Thursday at 2:00 PM and sent a calendar invite."
+                "I've checked my calendar and scheduled a 45-minute call for Thursday at 2:00 PM. A calendar invite is on its way."
                 if ("tax" in text or "planning" in text)
                 else "Confirmed availability — I've scheduled a 45-minute meeting and sent the invite."
             )
