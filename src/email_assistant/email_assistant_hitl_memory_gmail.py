@@ -226,6 +226,7 @@ def llm_call(state: State, store: BaseStore):
         return addr.strip()
 
     my_email = extract_email(to)
+    other_email = extract_email(author)
     # High-level routing nudge based on content
     text_for_heuristic = f"{subject}\n{email_thread}".lower()
     system_msgs = [
