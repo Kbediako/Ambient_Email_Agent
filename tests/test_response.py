@@ -105,7 +105,21 @@ try:
     if ChatGoogleGenerativeAI is None:
         raise ImportError("langchain-google-genai is not installed")
     # Encourage deterministic, short, JSON-friendly outputs
-    criteria_eval_llm = ChatGoogleGenerativeAI(model=model_name, temperature=0, max_retries=3)
+    safety = {
+        "HARASSMENT": "BLOCK_NONE",
+        "HATE_SPEECH": "BLOCK_NONE",
+        "SEXUAL": "BLOCK_NONE",
+        "DANGEROUS_CONTENT": "BLOCK_NONE",
+    }
+    criteria_eval_llm = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0,
+        max_retries=3,
+        safety_settings=safety,
+        max_output_tokens=256,
+    )
+    # Force JSON MIME to reduce null/empty responses
+    criteria_eval_llm = criteria_eval_llm.bind(generation_config={"response_mime_type": "application/json"})
     # Wrap structured output to coerce/guard against nulls
     _judge = criteria_eval_llm.with_structured_output(CriteriaGrade)
     _judge = _judge | RunnableLambda(lambda x: x or CriteriaGrade(grade=False, justification="Judge returned null."))
