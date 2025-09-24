@@ -386,7 +386,7 @@ def show_graph(graph, xray=False):
     try:
         # Try the default renderer first
         return Image(graph.get_graph(xray=xray).draw_mermaid_png())
-    except Exception as e:
+    except Exception:
         # Fall back to pyppeteer if the default renderer fails
         import nest_asyncio
         nest_asyncio.apply()

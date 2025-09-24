@@ -6,7 +6,6 @@ This script provides a minimal implementation for ingesting emails to the LangGr
 with reliable LangSmith tracing.
 """
 
-import base64
 import json
 import uuid
 import hashlib
@@ -57,7 +56,7 @@ def load_gmail_credentials():
     if token_data is None:
         if TOKEN_PATH.exists():
             try:
-                with open(TOKEN_PATH, "r") as f:
+                with open(TOKEN_PATH) as f:
                     token_data = json.load(f)
                 print(f"Using token from {TOKEN_PATH}")
             except Exception as e:
@@ -129,10 +128,10 @@ async def ingest_email_to_langgraph(email_data, graph_name, url="http://127.0.0.
         thread_info = await client.threads.get(thread_id)
         thread_exists = True
         print(f"Found existing thread: {thread_id}")
-    except Exception as e:
+    except Exception:
         # If thread doesn't exist, create it
         print(f"Creating new thread: {thread_id}")
-        thread_info = await client.threads.create(thread_id=thread_id)
+        await client.threads.create(thread_id=thread_id)
     
     # If thread exists, clean up previous runs
     if thread_exists:
