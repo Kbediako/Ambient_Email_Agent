@@ -63,3 +63,10 @@ These are orthogonal to sending and safe for live runs.
 - Unset `EMAIL_ASSISTANT_EVAL_MODE` and `HITL_AUTO_ACCEPT` to review drafts in Agent Inbox.
 - Keep `EMAIL_ASSISTANT_RECIPIENT_IN_EMAIL_ADDRESS` unset for correct live sending semantics.
 - Ensure Gmail credentials are configured as described in `src/email_assistant/tools/gmail/README.md`.
+
+## Breaking Changes (since last update)
+- Default agent in examples is now `email_assistant_hitl_memory_gmail` (Gmail tools + HITL + memory). Older notebooks referring to `email_assistant` or `email_assistant_hitl` may not reflect the current flow.
+- Persistence now uses Sqlite checkpointer/store by default via helpers in `src/email_assistant/checkpointing.py`. Provide `configurable.thread_id` when running graphs that use interrupts or durability.
+- HITL flows use `langgraph.prebuilt.interrupt.HumanInterrupt` and require a checkpointer to pause/resume. Use `HITL_AUTO_ACCEPT=1` for demos/tests.
+- Structured outputs for Gmail agent: final state includes `assistant_reply`, `tool_trace`, and `email_markdown`. Not all non-Gmail agents emit these keys.
+- Offline-friendly flags: set `EMAIL_ASSISTANT_EVAL_MODE=1` to synthesize tool plans (no live LLM); unset for live runs. Some cells in notebooks will assume these flags when running in CI.
