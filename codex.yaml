@@ -1,0 +1,5 @@
+jobs:
+  tests:
+    run: ./scripts/setup-env.sh pytest
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
