@@ -1,0 +1,58 @@
+name: Enable auto-merge after CodeRabbit approval
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    if: contains(fromJson('["coderabbitai","coderabbitai[bot]"]'), github.event.review.user.login) && github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable GitHub auto-merge
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const core = require("@actions/core");
+            const pr = context.payload.pull_request;
+            if (pr.draft) {
+              core.info("PR is draft; skipping auto-merge enablement.");
+              return;
+            }
+            if (pr.state !== "open") {
+              core.info(`PR state is ${pr.state}; skipping auto-merge enablement.`);
+              return;
+            }
+
+            const query = `mutation($prId: ID!, $method: PullRequestMergeMethod!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: $method }) {
+                pullRequest {
+                  number
+                  autoMergeRequest {
+                    enabledAt
+                    enabledBy { login }
+                  }
+                }
+              }
+            }`;
+
+            try {
+              const result = await github.graphql(query, {
+                prId: pr.node_id,
+                method: "SQUASH",
+              });
+              const enabledBy = result?.enablePullRequestAutoMerge?.pullRequest?.autoMergeRequest?.enabledBy?.login;
+              core.info(`Auto-merge enabled by ${enabledBy || 'workflow'} for PR #${pr.number}.`);
+            } catch (error) {
+              const message = error.errors?.map(e => e.message).join('; ') || error.message;
+              if (message.match(/already enabled|mergeable|Cannot enable auto-merge/i)) {
+                core.warning(`Skipping auto-merge enablement: ${message}`);
+                return;
+              }
+              throw error;
+            }

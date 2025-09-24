@@ -182,8 +182,3 @@ Notes
 
 - Transient 5xx from model providers: retry the run. Tests do not require live LLMs; the UI judge is separate from local pytest.
 - Recursion limit errors: in Studio, increase the `recursion_limit` in the request/config to `100` for long tool sequences.
-
-### Post-merge Housekeeping
-- After merging a pull request, pull the updated `main` locally (`git fetch && git checkout main && git pull`) before starting new work.
-- Delete the merged feature branch on both the remote (`git push origin --delete <branch>`) and your workstation (`git branch -d <branch>`) to avoid reviving stale configs.
-- If you prefer this to happen automatically, enable GitHub’s repository setting **Automatically delete head branches** or wire a workflow (e.g., `peter-evans/delete-merged-branch`)—CodeRabbit does not yet support branch cleanup or auto-merging on its own approvals.
