@@ -3,6 +3,7 @@
 language: en-US
 reviews:
   request_changes_workflow: true
+  auto_title_placeholder: "@coderabbitai"
   auto_review:
     enabled: true
     drafts: false
