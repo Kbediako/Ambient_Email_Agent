@@ -41,9 +41,14 @@ jobs:
             }`;
 
             try {
+              let mergeMethod = (process.env.AUTO_MERGE_METHOD || "SQUASH").toUpperCase();
+              if (!["MERGE", "SQUASH", "REBASE"].includes(mergeMethod)) {
+                core.warning(`Invalid AUTO_MERGE_METHOD "${mergeMethod}", defaulting to SQUASH.`);
+                mergeMethod = "SQUASH";
+              }
               const result = await github.graphql(query, {
                 prId: pr.node_id,
-                mergeMethod: "SQUASH",
+                mergeMethod,
               });
               const enabledBy = result?.enablePullRequestAutoMerge?.pullRequest?.autoMergeRequest?.enabledBy?.login;
               core.info(`Auto-merge enabled by ${enabledBy || 'workflow'} for PR #${pr.number}.`);
