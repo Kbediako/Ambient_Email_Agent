@@ -16,8 +16,8 @@ jobs:
           python-version: '3.11'
       - name: Install uv
         run: pipx install uv
-      - name: Sync deps
-        run: uv sync
+      - name: Sync deps (including dev extras)
+        run: uv sync --extra dev
       - name: Lint (ruff)
         run: uv run ruff check .
       - name: Type check (mypy)
