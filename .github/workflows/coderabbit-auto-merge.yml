@@ -41,7 +41,7 @@ jobs:
             }`;
 
             try {
-              let mergeMethod = (process.env.AUTO_MERGE_METHOD || "SQUASH").toUpperCase();
+              let mergeMethod = (process.env.AUTO_MERGE_METHOD || "SQUASH").trim().toUpperCase();
               if (!["MERGE", "SQUASH", "REBASE"].includes(mergeMethod)) {
                 core.warning(`Invalid AUTO_MERGE_METHOD "${mergeMethod}", defaulting to SQUASH.`);
                 mergeMethod = "SQUASH";
