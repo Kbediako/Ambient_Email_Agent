@@ -41,15 +41,28 @@ jobs:
             }`;
 
             try {
-              let mergeMethod = (process.env.AUTO_MERGE_METHOD || "SQUASH").trim().toUpperCase();
-              if (!["MERGE", "SQUASH", "REBASE"].includes(mergeMethod)) {
+              const rawMethod = (process.env.AUTO_MERGE_METHOD || "SQUASH").trim().toUpperCase();
+              const aliases = { MERGE_COMMIT: "MERGE", REBASE_MERGE: "REBASE", SQUASH_MERGE: "SQUASH" };
+              let mergeMethod = aliases[rawMethod] || rawMethod;
+              const allowed = ["MERGE", "SQUASH", "REBASE"];
+              if (!allowed.includes(mergeMethod)) {
                 core.warning(`Invalid AUTO_MERGE_METHOD "${mergeMethod}", defaulting to SQUASH.`);
                 mergeMethod = "SQUASH";
               }
-              const result = await github.graphql(query, {
-                prId: pr.node_id,
-                mergeMethod,
-              });
+              core.info(`Attempting to enable auto-merge with method: ${mergeMethod}`);
+              const enable = async (method) => github.graphql(query, { prId: pr.node_id, mergeMethod: method });
+              let result;
+              try {
+                result = await enable(mergeMethod);
+              } catch (error) {
+                const message = error.errors?.map(e => e.message).join('; ') || error.message;
+                if (mergeMethod !== "SQUASH" && /not (allowed|enabled)|disabled/i.test(message)) {
+                  core.warning(`Merge method "${mergeMethod}" not permitted; falling back to SQUASH.`);
+                  result = await enable("SQUASH");
+                } else {
+                  throw error;
+                }
+              }
               const enabledBy = result?.enablePullRequestAutoMerge?.pullRequest?.autoMergeRequest?.enabledBy?.login;
               core.info(`Auto-merge enabled by ${enabledBy || 'workflow'} for PR #${pr.number}.`);
             } catch (error) {
