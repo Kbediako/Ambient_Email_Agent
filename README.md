@@ -53,6 +53,7 @@ Helpful toggles (leave unset for live runs):
 - `EMAIL_ASSISTANT_SKIP_MARK_AS_READ=1` – skip Gmail `mark_as_read` call.
 - `EMAIL_ASSISTANT_EVAL_MODE=1` – deterministic, offline tool calls.
 - `EMAIL_ASSISTANT_RECIPIENT_IN_EMAIL_ADDRESS=1` – evaluator compatibility mode.
+- `EMAIL_ASSISTANT_SQLITE_TIMEOUT=60` – optional override (seconds) for SQLite busy timeouts when running LangSmith traces or parallel judges; defaults to 30.
 
 ### Launch LangGraph Studio or CLI
 ```bash
