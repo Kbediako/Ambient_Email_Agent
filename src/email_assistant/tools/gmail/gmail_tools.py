@@ -39,26 +39,8 @@ try:
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     
-    # Email content extraction function
-    def extract_message_part(payload):
-        """Extract content from a message part."""
-        if payload.get("body", {}).get("data"):
-            # Handle base64 encoded content
-            data = payload["body"]["data"]
-            decoded = base64.urlsafe_b64decode(data).decode("utf-8")
-            return decoded
-            
-        # Handle multipart messages
-        if payload.get("parts"):
-            text_parts = []
-            for part in payload["parts"]:
-                # Recursively process parts
-                content = extract_message_part(part)
-                if content:
-                    text_parts.append(content)
-            return "\n".join(text_parts)
-            
-        return ""
+    # Email content extraction function (delegate to shared util)
+    from .parts import extract_message_part  # type: ignore
     
     # Function to get credentials from token.json or environment variables
     def get_credentials(gmail_token=None, gmail_secret=None):
@@ -227,23 +209,22 @@ def fetch_group_emails(
             
         service = build("gmail", "v1", credentials=creds)
         
-        # Calculate timestamp for filtering
-        after = int((datetime.now() - timedelta(minutes=minutes_since)).timestamp())
-        
-        # Construct Gmail search query
-        # This query searches for:
-        # - Emails sent to or from the specified address
-        # - Emails after the specified timestamp
-        # - Including emails from all categories (inbox, updates, promotions, etc.)
-        
-        # Base query with time filter
-        query = f"(to:{email_address} OR from:{email_address}) after:{after}"
-        
-        # Only include unread emails unless include_read is True
-        if not include_read:
-            query += " is:unread"
-        else:
-            logger.info("Including read emails in search")
+        # Construct Gmail search query using shared builder
+        try:
+            from .query import build_gmail_query  # type: ignore
+            query = build_gmail_query(
+                email_address=email_address,
+                minutes_since=minutes_since,
+                include_read=include_read,
+            )
+        except Exception:
+            # Fallback inline if shared import fails in constrained envs
+            after = int((datetime.now() - timedelta(minutes=minutes_since)).timestamp())
+            query = f"(to:{email_address} OR from:{email_address}) after:{after}"
+            if not include_read:
+                query += " is:unread"
+            else:
+                logger.info("Including read emails in search")
             
         # Log the final query for debugging
         logger.info(f"Gmail search query: {query}")
@@ -257,13 +238,33 @@ def fetch_group_emails(
         nextPageToken = None
         logger.info(f"Fetching emails for {email_address} from last {minutes_since} minutes")
         
+        page_count = 0
+        max_pages = 10
+        backoff_s = 1.0
         while True:
-            results = (
-                service.users()
-                .messages()
-                .list(userId="me", q=query, pageToken=nextPageToken)
-                .execute()
-            )
+            try:
+                results = (
+                    service.users()
+                    .messages()
+                    .list(userId="me", q=query, pageToken=nextPageToken)
+                    .execute()
+                )
+                backoff_s = 1.0  # reset after a successful page
+            except Exception as exc:
+                text = str(exc).lower()
+                if any(code in text for code in ["429", "rate limit", "quota"]):
+                    logger.warning(f"Rate limited fetching messages; backing off {backoff_s:.1f}s")
+                    import time
+                    time.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2, 32.0)
+                    continue
+                if any(code in text for code in ["500", "502", "503", "504"]):
+                    logger.warning(f"Server error fetching messages; backing off {backoff_s:.1f}s")
+                    import time
+                    time.sleep(backoff_s)
+                    backoff_s = min(backoff_s * 2, 32.0)
+                    continue
+                raise
             if "messages" in results:
                 new_messages = results["messages"]
                 messages.extend(new_messages)
@@ -272,8 +273,12 @@ def fetch_group_emails(
                 logger.info("No messages found in this page")
                 
             nextPageToken = results.get("nextPageToken")
+            page_count += 1
             if not nextPageToken:
                 logger.info(f"Total messages found: {len(messages)}")
+                break
+            if page_count >= max_pages:
+                logger.warning(f"Page cap reached ({max_pages}); stopping pagination early")
                 break
 
         # Process each message
@@ -821,7 +826,7 @@ class ScheduleMeetingInput(BaseModel):
         description="Email address of the meeting organizer"
     )
     timezone: str = Field(
-        default="Australia/Melbourne",
+        default="Australia/Sydney",
         description="Timezone for the meeting"
     )
 
@@ -831,7 +836,7 @@ def send_calendar_invite(
     start_time: str,
     end_time: str,
     organizer_email: str,
-    timezone: str = "Australia/Melbourne"
+    timezone: str = "Australia/Sydney"
 ) -> Tuple[bool, str]:
     """
     Schedule a meeting with Google Calendar and send invites.
@@ -916,7 +921,7 @@ def schedule_meeting_tool(
     start_time: str,
     end_time: str,
     organizer_email: str,
-    timezone: str = "Australia/Melbourne"
+    timezone: str = "Australia/Sydney"
 ) -> str:
     """
     Schedule a meeting with Google Calendar and send invites.

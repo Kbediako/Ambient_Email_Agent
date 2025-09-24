@@ -13,6 +13,7 @@ from langgraph.types import interrupt, Command
 from email_assistant.tools import get_tools, get_tools_by_name
 from email_assistant.tools.default.prompt_templates import HITL_MEMORY_TOOLS_PROMPT
 from email_assistant.prompts import triage_system_prompt, triage_user_prompt, agent_system_prompt_hitl_memory, default_triage_instructions, default_background, default_response_preferences, default_cal_preferences, MEMORY_UPDATE_INSTRUCTIONS, MEMORY_UPDATE_INSTRUCTIONS_REINFORCEMENT
+import logging
 from email_assistant.configuration import get_llm
 from email_assistant.schemas import State, RouterSchema, StateInput, UserPreferences
 from email_assistant.utils import parse_email, format_for_display, format_email_markdown
@@ -29,6 +30,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")
 init_project(AGENT_PROJECT)
+logger = logging.getLogger(__name__)
 
 # Get tools
 tools = get_tools(["write_email", "schedule_meeting", "check_calendar_availability", "Question", "Done"])
@@ -41,20 +43,14 @@ def _maybe_interrupt(requests):
         return [{"type": "accept", "args": {}}]
     return interrupt(requests)
 
-# Role-specific model selection (override via env)
-DEFAULT_MODEL = (
-    os.getenv("EMAIL_ASSISTANT_MODEL")
-    or os.getenv("GEMINI_MODEL")
-    or "gemini-2.5-pro"
-)
-ROUTER_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_ROUTER_MODEL") or DEFAULT_MODEL
-TOOL_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_TOOL_MODEL") or DEFAULT_MODEL
-
-# Initialize the LLM for use with router / structured output
-llm_router = get_llm(temperature=0.0, model=ROUTER_MODEL_NAME).with_structured_output(RouterSchema)
-
-# Initialize the LLM, allowing any tool call (Gemini rejects 'required' as a function name)
-llm_with_tools = get_llm(temperature=0.0, model=TOOL_MODEL_NAME).bind_tools(tools, tool_choice="any")
+llm_router = get_llm(temperature=0.0, role="router").with_structured_output(RouterSchema)
+llm_with_tools = get_llm(temperature=0.0, role="tool").bind_tools(tools, tool_choice="any")
+try:
+    router_model = getattr(llm_router, "model", None) or "<resolved>"
+    tool_model = getattr(llm_with_tools, "model", None) or "<resolved>"
+    logger.info(f"Models → router={router_model}, tools={tool_model}")
+except Exception:
+    pass
 
 def get_memory(store, namespace, default_content=None):
     """Get memory from the store or initialize with default if it doesn't exist.
@@ -108,8 +104,7 @@ def update_memory(store, namespace, messages):
     # Try structured update via LLM
     new_profile = None
     try:
-        memory_model = os.getenv("EMAIL_ASSISTANT_MEMORY_MODEL") or DEFAULT_MODEL
-        llm = get_llm(model=memory_model).with_structured_output(UserPreferences)
+        llm = get_llm(role="memory").with_structured_output(UserPreferences)
         result = llm.invoke(
             [
                 {

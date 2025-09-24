@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: pipx install uv
+      - name: Sync deps
+        run: uv sync
+      - name: Lint (ruff)
+        run: uv run ruff check .
+      - name: Type check (mypy)
+        run: uv run mypy --ignore-missing-imports src
+      - name: Run offline tool-call tests
+        env:
+          EMAIL_ASSISTANT_EVAL_MODE: '1'
+          HITL_AUTO_ACCEPT: '1'
+          EMAIL_ASSISTANT_SKIP_MARK_AS_READ: '1'
+        run: uv run pytest tests/test_response.py --agent-module=email_assistant_hitl_memory_gmail -k tool_calls -v

@@ -1,11 +1,14 @@
 import os
 import sys
 import asyncio
+import logging
 from typing import Dict, Any, TypedDict
 from dataclasses import dataclass, field
 from langgraph.graph import StateGraph, START, END
 from email_assistant.tools.gmail.run_ingest import fetch_and_process_emails
 from email_assistant.tracing import AGENT_PROJECT, init_project
+
+logger = logging.getLogger(__name__)
 
 @dataclass(kw_only=True)
 class JobKickoff:
@@ -22,10 +25,10 @@ class JobKickoff:
 async def main(state: JobKickoff):
     """Run the email ingestion process"""
     init_project(AGENT_PROJECT)
-    print(f"Kicking off job to fetch emails from the past {state.minutes_since} minutes")
-    print(f"Email: {state.email}")
-    print(f"URL: {state.url}")
-    print(f"Graph name: {state.graph_name}")
+    logger.info(f"Kicking off job to fetch emails from the past {state.minutes_since} minutes")
+    logger.info(f"Email: {state.email}")
+    logger.info(f"URL: {state.url}")
+    logger.info(f"Graph name: {state.graph_name}")
     
     try:
         # Convert state to args object for fetch_and_process_emails
@@ -33,7 +36,7 @@ async def main(state: JobKickoff):
             def __init__(self, **kwargs):
                 for key, value in kwargs.items():
                     setattr(self, key, value)
-                print(f"Created Args with attributes: {dir(self)}")
+                logger.debug(f"Created Args with attributes: {dir(self)}")
         
         args = Args(
             email=state.email,
@@ -46,21 +49,20 @@ async def main(state: JobKickoff):
             skip_filters=state.skip_filters
         )
         
-        # Print email and URL to verify they're being passed correctly
-        print(f"Args email: {args.email}")
-        print(f"Args url: {args.url}")
+        # Log email and URL to verify they're being passed correctly
+        logger.info(f"Args email: {args.email}")
+        logger.info(f"Args url: {args.url}")
         
         # Run the ingestion process
-        print("Starting fetch_and_process_emails...")
+        logger.info("Starting fetch_and_process_emails...")
         result = await fetch_and_process_emails(args)
-        print(f"fetch_and_process_emails returned: {result}")
+        logger.info(f"fetch_and_process_emails returned: {result}")
         
         # Return the result status
         return {"status": "success" if result == 0 else "error", "exit_code": result}
     except Exception as e:
         import traceback
-        print(f"Error in cron job: {str(e)}")
-        print(traceback.format_exc())
+        logger.exception(f"Error in cron job: {str(e)}")
         return {"status": "error", "error": str(e)}
 
 # Build the graph

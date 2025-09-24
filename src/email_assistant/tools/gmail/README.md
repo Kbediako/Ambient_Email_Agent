@@ -275,7 +275,7 @@ In summary:
 
 ## Semantics & Defaults
 
-- Timezone default: Scheduling uses `Australia/Melbourne` by default unless you provide an explicit timezone.
+- Timezone default: Scheduling uses `Australia/Sydney` by default unless you provide an explicit timezone. You can override with `TIMEZONE`.
 - Sender/recipient semantics for replies:
   - In live Gmail mode, `send_email_tool.email_address` is your account (sender).
   - Some evaluators expect the recipient in `email_address`; enable compat mode with `EMAIL_ASSISTANT_RECIPIENT_IN_EMAIL_ADDRESS=1` (not recommended for live).

@@ -28,35 +28,8 @@ _SECRETS_DIR = _ROOT / ".secrets"
 TOKEN_PATH = _SECRETS_DIR / "token.json"
 
 def extract_message_part(payload):
-    """Extract content from a message part."""
-    # If this is multipart, process with preference for text/plain
-    if payload.get("parts"):
-        # First try to find text/plain part
-        for part in payload["parts"]:
-            mime_type = part.get("mimeType", "")
-            if mime_type == "text/plain" and part.get("body", {}).get("data"):
-                data = part["body"]["data"]
-                return base64.urlsafe_b64decode(data).decode("utf-8")
-                
-        # If no text/plain found, try text/html
-        for part in payload["parts"]:
-            mime_type = part.get("mimeType", "")
-            if mime_type == "text/html" and part.get("body", {}).get("data"):
-                data = part["body"]["data"]
-                return base64.urlsafe_b64decode(data).decode("utf-8")
-                
-        # If we still haven't found content, recursively check for nested parts
-        for part in payload["parts"]:
-            content = extract_message_part(part)
-            if content:
-                return content
-    
-    # Not multipart, try to get content directly
-    if payload.get("body", {}).get("data"):
-        data = payload["body"]["data"]
-        return base64.urlsafe_b64decode(data).decode("utf-8")
-
-    return ""
+    from .parts import extract_message_part as _parts_extract  # type: ignore
+    return _parts_extract(payload)
 
 def load_gmail_credentials():
     """
@@ -219,19 +192,22 @@ async def fetch_and_process_emails(args):
         # Get messages from the specified email address
         email_address = args.email
         
-        # Construct Gmail search query
-        query = f"to:{email_address} OR from:{email_address}"
-        
-        # Add time constraint if specified
-        if args.minutes_since > 0:
-            # Calculate timestamp for filtering
-            from datetime import timedelta
-            after = int((datetime.now() - timedelta(minutes=args.minutes_since)).timestamp())
-            query += f" after:{after}"
-            
-        # Only include unread emails unless include_read is True
-        if not args.include_read:
-            query += " is:unread"
+        # Construct Gmail search query via shared helper
+        try:
+            from .query import build_gmail_query  # type: ignore
+            query = build_gmail_query(
+                email_address=email_address,
+                minutes_since=getattr(args, "minutes_since", 0) or 0,
+                include_read=getattr(args, "include_read", False) or False,
+            )
+        except Exception:
+            query = f"to:{email_address} OR from:{email_address}"
+            if args.minutes_since > 0:
+                from datetime import timedelta
+                after = int((datetime.now() - timedelta(minutes=args.minutes_since)).timestamp())
+                query += f" after:{after}"
+            if not args.include_read:
+                query += " is:unread"
             
         print(f"Gmail search query: {query}")
         

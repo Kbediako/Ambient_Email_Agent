@@ -1,5 +1,5 @@
 [project]
-name = "agents_from_scratch"
+name = "ambient-email-agent"
 version = "0.1.0"
 description = "Build an e-mail assistant from scratch"
 requires-python = ">=3.11"

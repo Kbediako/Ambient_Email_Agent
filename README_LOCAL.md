@@ -170,7 +170,7 @@ Notes
   - `tool_trace` → last AI message’s `tool_calls`
 
 ### Timezone Defaults
-- The agent interprets dates/times in Australia/Melbourne by default unless the email specifies a timezone. `schedule_meeting_tool.timezone` defaults to this value.
+- The agent interprets dates/times in Australia/Sydney by default unless the email specifies a timezone. `schedule_meeting_tool.timezone` defaults to this value. Override with `TIMEZONE`.
 
 ### Experiment Dataset
 - File: `datasets/experiment_gmail.jsonl`

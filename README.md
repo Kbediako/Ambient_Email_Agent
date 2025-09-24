@@ -2,6 +2,10 @@
 
 The Standalone Email Assistant is a LangGraph-powered workflow that triages incoming email, coordinates tools, and drafts high-quality replies using Google's Gemini models. The project showcases how to layer human-in-the-loop checkpoints, durable memory, and Gmail automation on top of a modular graph so you can evolve an assistant from a simple responder into a production-ready agent.
 
+Defaults:
+- Timezone: `Australia/Sydney` (override via `TIMEZONE`)
+- Model selection is centralized via `email_assistant.configuration.get_llm(role=...)` with env overrides: `EMAIL_ASSISTANT_MODEL`, `EMAIL_ASSISTANT_ROUTER_MODEL`, `EMAIL_ASSISTANT_TOOL_MODEL`, `EMAIL_ASSISTANT_MEMORY_MODEL`.
+
 ## Highlights
 - LangGraph 0.6 graph lineup with tiered capabilities: baseline responder, HITL, persistent memory, and Gmail-native automation.
 - Gemini 2.5 tool orchestration (`tool_choice="any"`) with guardrails for spam handling, no-reply detection, and deterministic evaluation modes.

@@ -28,6 +28,7 @@ from email_assistant.prompts import (
     MEMORY_UPDATE_INSTRUCTIONS,
     MEMORY_UPDATE_INSTRUCTIONS_REINFORCEMENT,
 )
+import logging
 from email_assistant.configuration import get_llm
 from email_assistant.schemas import State, RouterSchema, StateInput, UserPreferences
 from email_assistant.utils import (
@@ -52,6 +53,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")
 init_project(AGENT_PROJECT)
+logger = logging.getLogger(__name__)
 
 # Get tools with Gmail tools
 tools = get_tools([
@@ -183,20 +185,14 @@ def _build_manual_scheduling_reply(text: str) -> str:
     return " ".join(part.strip() for part in parts if part)
 
 
-# Role-specific model selection (override via env)
-# EMAIL_ASSISTANT_MODEL: default for all; EMAIL_ASSISTANT_ROUTER_MODEL, EMAIL_ASSISTANT_TOOL_MODEL, EMAIL_ASSISTANT_MEMORY_MODEL override per role
-DEFAULT_MODEL = (
-    os.getenv("EMAIL_ASSISTANT_MODEL")
-    or os.getenv("GEMINI_MODEL")
-    or "gemini-2.5-pro"
-)
-ROUTER_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_ROUTER_MODEL") or DEFAULT_MODEL
-TOOL_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_TOOL_MODEL") or os.getenv("GEMINI_MODEL_AGENT") or DEFAULT_MODEL
-MEMORY_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_MEMORY_MODEL") or DEFAULT_MODEL
-
-# Initialize models
-llm_router = get_llm(temperature=0.0, model=ROUTER_MODEL_NAME).with_structured_output(RouterSchema)
-llm_with_tools = get_llm(temperature=0.0, model=TOOL_MODEL_NAME).bind_tools(tools, tool_choice="any")
+llm_router = get_llm(temperature=0.0, role="router").with_structured_output(RouterSchema)
+llm_with_tools = get_llm(temperature=0.0, role="tool").bind_tools(tools, tool_choice="any")
+try:
+    router_model = getattr(llm_router, "model", None) or "<resolved>"
+    tool_model = getattr(llm_with_tools, "model", None) or "<resolved>"
+    logger.info(f"Models → router={router_model}, tools={tool_model}")
+except Exception:
+    pass
 
 
 def _resolve_thread_id(state: State) -> str | None:
@@ -246,7 +242,7 @@ def update_memory(store, namespace, messages):
     current_profile = getattr(existing, "value", str(existing) if existing else "")
     new_profile = None
     try:
-        llm = get_llm(model=MEMORY_MODEL_NAME).with_structured_output(UserPreferences)
+        llm = get_llm(role="memory").with_structured_output(UserPreferences)
         result = llm.invoke([
             {"role": "system", "content": MEMORY_UPDATE_INSTRUCTIONS.format(current_profile=current_profile, namespace=namespace)}
         ] + messages)

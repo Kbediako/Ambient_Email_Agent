@@ -1,7 +1,7 @@
 from datetime import datetime
 import os
 # Default timezone used in prompt text; can be overridden by TIMEZONE env
-TIMEZONE = os.getenv("TIMEZONE", "Australia/Melbourne")
+TIMEZONE = os.getenv("TIMEZONE", "Australia/Sydney")
 
 # Email assistant triage prompt 
 triage_system_prompt = """

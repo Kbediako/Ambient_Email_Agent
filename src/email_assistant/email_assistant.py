@@ -1,6 +1,7 @@
 from typing import Literal
 import os
 
+import logging
 from email_assistant.configuration import get_llm
 from email_assistant.tracing import (
     AGENT_PROJECT,
@@ -23,6 +24,7 @@ from langgraph.types import Command
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv(), override=True)
 init_project(AGENT_PROJECT)
+logger = logging.getLogger(__name__)
 
 # Get tools
 tools = get_tools()
@@ -37,24 +39,14 @@ Environment variables (optional overrides):
 - GEMINI_MODEL: default if the above are unset.
 """
 
-DEFAULT_MODEL = (
-    os.getenv("EMAIL_ASSISTANT_MODEL")
-    or os.getenv("GEMINI_MODEL")
-    or "gemini-2.5-pro"
-)
-ROUTER_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_ROUTER_MODEL") or DEFAULT_MODEL
-TOOL_MODEL_NAME = os.getenv("EMAIL_ASSISTANT_TOOL_MODEL") or DEFAULT_MODEL
-print(f"[email_assistant] Models -> router={ROUTER_MODEL_NAME}, tools={TOOL_MODEL_NAME}")
-
-# Initialize the LLM for use with router / structured output
-llm = get_llm(temperature=0.0, model=ROUTER_MODEL_NAME)
-print(f"[email_assistant] Router model: {ROUTER_MODEL_NAME} -> {type(llm).__name__}")
-llm_router = llm.with_structured_output(RouterSchema)
-
-# Initialize the LLM, enforcing tool use (of any available tools) for agent
-llm = get_llm(temperature=0.0, model=TOOL_MODEL_NAME)
-print(f"[email_assistant] Tool model: {TOOL_MODEL_NAME} -> {type(llm).__name__}")
-llm_with_tools = llm.bind_tools(tools, tool_choice="any")
+llm_router = get_llm(temperature=0.0, role="router").with_structured_output(RouterSchema)
+llm_with_tools = get_llm(temperature=0.0, role="tool").bind_tools(tools, tool_choice="any")
+try:
+    router_model = getattr(llm_router, "model", None) or "<resolved>"
+    tool_model = getattr(llm_with_tools, "model", None) or "<resolved>"
+    logger.info(f"Models → router={router_model}, tools={tool_model}")
+except Exception:
+    pass
 
 # Nodes
 def _fallback_tool_plan(email_input: dict):
@@ -340,8 +332,8 @@ def triage_router_task(state: State) -> Command[Literal["response_agent", "__end
             {"role": "user", "content": user_prompt},
         ])
         classification = getattr(result, "classification", None)
-    except Exception as e:
-        print(f"⚠️ Triage model error (attempt 1): {e}")
+        except Exception as e:
+            logger.warning(f"Triage model error (attempt 1): {e}")
 
     # Second attempt with an explicit instruction if needed
     if classification not in {"ignore", "respond", "notify"}:
@@ -352,14 +344,14 @@ def triage_router_task(state: State) -> Command[Literal["response_agent", "__end
             ])
             classification = getattr(result2, "classification", None)
         except Exception as e:
-            print(f"⚠️ Triage model error (attempt 2): {e}")
+            logger.warning(f"Triage model error (attempt 2): {e}")
 
     if classification not in {"ignore", "respond", "notify"}:
-        print("⚠️ Triage returned no/invalid classification after retries; using heuristic.")
+        logger.warning("Triage returned no/invalid classification after retries; using heuristic.")
         classification = _heuristic_triage(state["email_input"])  # type: ignore
 
     if classification == "respond":
-        print("📧 Classification: RESPOND - This email requires a response")
+        logger.info("Classification: RESPOND")
         goto = "response_agent"
         # Add the email to the messages
         update = {
@@ -369,7 +361,7 @@ def triage_router_task(state: State) -> Command[Literal["response_agent", "__end
                         }],
         }
     elif classification == "ignore":
-        print("🚫 Classification: IGNORE - This email can be safely ignored")
+        logger.info("Classification: IGNORE")
         update =  {
             "classification_decision": classification,
         }
@@ -380,7 +372,7 @@ def triage_router_task(state: State) -> Command[Literal["response_agent", "__end
         goto = END
     elif classification == "notify":
         # If real life, this would do something else
-        print("🔔 Classification: NOTIFY - This email contains important information")
+        logger.info("Classification: NOTIFY")
         update = {
             "classification_decision": classification,
         }

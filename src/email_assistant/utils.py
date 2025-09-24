@@ -148,21 +148,34 @@ def parse_email(email_input: dict) -> tuple[str, str, str, str]:
     return (author or "", to or "", subject or "", thread or "")
 
 def parse_gmail(email_input: dict) -> tuple[str, str, str, str, str]:
-    """Parse a Gmail-style email dict flexibly and safely.
+    """Extract key fields from Gmail-like dicts with robust fallbacks.
 
-    Accepts variations in key names and falls back to dataset-style keys so
-    experiments or older datasets don't break. Missing fields return empty strings.
-
-    Expected keys (preferred → fallbacks):
-      - from → From → author
-      - to → To
-      - subject → Subject
-      - body → Body → email_thread → page_content
-      - id → message_id → gmail_id
+    Supports:
+      - Raw Gmail API payloads (payload.headers/snippet, id)
+      - Simplified Gmail-like schema (from/to/subject/body, id/thread_id)
+      - Dataset schema used in tests (author/to/subject/email_thread)
     """
-    if not isinstance(email_input, dict):
-        return ("", "", "", "", "")
+    if not email_input or not isinstance(email_input, dict):
+        return "", "", "", "", ""
 
+    email_id = (
+        email_input.get("id")
+        or email_input.get("thread_id")
+        or email_input.get("message_id")
+        or email_input.get("gmail_id")
+        or ""
+    )
+
+    # Real Gmail API shape
+    if "payload" in email_input:
+        headers = email_input.get("payload", {}).get("headers", [])
+        author = next((h.get("value", "") for h in headers if h.get("name") == "From"), "")
+        to = next((h.get("value", "") for h in headers if h.get("name") == "To"), "")
+        subject = next((h.get("value", "") for h in headers if h.get("name") == "Subject"), "")
+        email_thread = email_input.get("snippet", "")
+        return author, to, subject, email_thread, email_id
+
+    # Simplified Gmail-like OR dataset schema
     author = (
         email_input.get("from")
         or email_input.get("From")
@@ -171,21 +184,15 @@ def parse_gmail(email_input: dict) -> tuple[str, str, str, str, str]:
     )
     to = email_input.get("to") or email_input.get("To") or ""
     subject = email_input.get("subject") or email_input.get("Subject") or ""
-    body = (
+    email_thread = (
         email_input.get("body")
         or email_input.get("Body")
         or email_input.get("email_thread")
         or email_input.get("page_content")
         or ""
     )
-    email_id = (
-        email_input.get("id")
-        or email_input.get("message_id")
-        or email_input.get("gmail_id")
-        or ""
-    )
 
-    return (author, to, subject, body, email_id)
+    return author, to, subject, email_thread, email_id
     
 def extract_message_content(message) -> str:
     """Extract content from different message types as clean string.
@@ -386,50 +393,4 @@ def show_graph(graph, xray=False):
         from langchain_core.runnables.graph import MermaidDrawMethod
         return Image(graph.get_graph().draw_mermaid_png(draw_method=MermaidDrawMethod.PYPPETEER))
 
-# --- Override parse_gmail with robust fallbacks (Gmail + dataset) ---
-def parse_gmail(email_input: dict) -> tuple[str, str, str, str, str]:
-    """Extract key fields from Gmail-like dicts with robust fallbacks.
-
-    Supports:
-      - Raw Gmail API payloads (payload.headers/snippet, id)
-      - Simplified Gmail-like schema (from/to/subject/body, id/thread_id)
-      - Dataset schema used in tests (author/to/subject/email_thread)
-    """
-    if not email_input or not isinstance(email_input, dict):
-        return "", "", "", "", ""
-
-    email_id = (
-        email_input.get("id")
-        or email_input.get("thread_id")
-        or email_input.get("message_id")
-        or email_input.get("gmail_id")
-        or ""
-    )
-
-    # Real Gmail API shape
-    if "payload" in email_input:
-        headers = email_input.get("payload", {}).get("headers", [])
-        author = next((h.get("value", "") for h in headers if h.get("name") == "From"), "")
-        to = next((h.get("value", "") for h in headers if h.get("name") == "To"), "")
-        subject = next((h.get("value", "") for h in headers if h.get("name") == "Subject"), "")
-        email_thread = email_input.get("snippet", "")
-        return author, to, subject, email_thread, email_id
-
-    # Simplified Gmail-like OR dataset schema
-    author = (
-        email_input.get("from")
-        or email_input.get("From")
-        or email_input.get("author")
-        or ""
-    )
-    to = email_input.get("to") or email_input.get("To") or ""
-    subject = email_input.get("subject") or email_input.get("Subject") or ""
-    email_thread = (
-        email_input.get("body")
-        or email_input.get("Body")
-        or email_input.get("email_thread")
-        or email_input.get("page_content")
-        or ""
-    )
-
-    return author, to, subject, email_thread, email_id
+ 

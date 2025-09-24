@@ -60,7 +60,7 @@ This project demonstrates an evolving AI email assistant built with LangGraph an
  - `email_markdown`: canonical email context block
 - Judge + dataset reviews can iterate large LangSmith experiments via `iter_experiment_runs()` (in `email_assistant.eval.judges`), which uses `Client.get_experiment_results()` to page through results without manual offsets.
  - Tool-arg compatibility toggle: Some evaluators expect `send_email_tool.email_address` to contain the reply recipient (the other party). By default (live mode), `email_address` remains your address (correct for Gmail). For compatibility in evals/demos, set `EMAIL_ASSISTANT_RECIPIENT_IN_EMAIL_ADDRESS=1` (this is also implied when `EMAIL_ASSISTANT_EVAL_MODE=1`).
-  - Timezone defaults: The Gmail agent uses Australia/Melbourne by default for prompts and scheduling tools unless an explicit timezone is provided.
+  - Timezone defaults: The Gmail agent uses Australia/Sydney by default for prompts and scheduling tools unless an explicit timezone is provided. Override via `TIMEZONE`.
 
 ### Defaults and Test Modes
 
@@ -85,7 +85,7 @@ Environment summary for deterministic/offline runs:
   - On Accept: calls a Gmail helper to apply the `SPAM` label and remove `INBOX`, records the action in the tool messages, updates triage memory to bias similar emails toward ignore/notify, and ends the workflow.
   - On decline: records that the user declined and continues the workflow.
 - Rationale: keeps risky mailbox actions under explicit HITL control while still learning from feedback.
-- Model name normalization: Accepts either bare names (`gemini-2.5-pro`) or prefixed (`google_genai:gemini-2.5-pro`, `models/gemini-2.5-pro`) and normalizes internally.
+- Model name normalization: Accepts either bare names (`gemini-2.5-pro`) or prefixed (`google_genai:gemini-2.5-pro`, `models/gemini-2.5-pro`) and normalizes internally via `configuration.get_llm()`. Roles: `router`, `tool`, `memory`.
 
 ## Running in LangGraph Studio
 

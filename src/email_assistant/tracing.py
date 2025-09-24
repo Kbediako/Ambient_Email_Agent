@@ -12,7 +12,10 @@ from typing import Any, Callable, Iterable, Mapping, Sequence as SeqType
 from datetime import datetime, timezone
 
 from email_assistant.utils import extract_message_content, parse_gmail
-from email_assistant import version as EMAIL_ASSISTANT_VERSION
+try:
+    from email_assistant import __version__ as EMAIL_ASSISTANT_VERSION
+except Exception:  # pragma: no cover
+    EMAIL_ASSISTANT_VERSION = "0.0.0"
 
 # LangSmith recently refactored the tracing helpers. Import order keeps backward
 # compatibility with older packages while preferring the newer ``trace`` API.
