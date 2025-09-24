@@ -28,8 +28,8 @@ jobs:
               return;
             }
 
-            const query = `mutation($prId: ID!, $method: PullRequestMergeMethod!) {
-              enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: $method }) {
+            const query = `mutation($prId: ID!, $mergeMethod: PullRequestMergeMethod!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: $mergeMethod }) {
                 pullRequest {
                   number
                   autoMergeRequest {
@@ -43,7 +43,7 @@ jobs:
             try {
               const result = await github.graphql(query, {
                 prId: pr.node_id,
-                method: "SQUASH",
+                mergeMethod: "SQUASH",
               });
               const enabledBy = result?.enablePullRequestAutoMerge?.pullRequest?.autoMergeRequest?.enabledBy?.login;
               core.info(`Auto-merge enabled by ${enabledBy || 'workflow'} for PR #${pr.number}.`);
