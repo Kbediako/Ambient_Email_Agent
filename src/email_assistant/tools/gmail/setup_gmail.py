@@ -12,7 +12,6 @@ This script handles the OAuth flow for Gmail API access by:
 import os
 import sys
 import json
-from pathlib import Path
 
 # Add project root to sys.path for imports to work correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../")))
@@ -27,7 +26,7 @@ def main():
 	with open(secrets_path) as f:
 		_ = json.load(f)
 	# Create the flow using the client_secrets.json format
-	flow = InstalledAppFlow.from_client_secrets_file(secrets_path, scopes=[
+	InstalledAppFlow.from_client_secrets_file(secrets_path, scopes=[
 		"https://www.googleapis.com/auth/gmail.modify",
 	])
 	print("Setup flow created. Follow on-screen instructions to authorize.")

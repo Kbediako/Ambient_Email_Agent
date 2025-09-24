@@ -125,7 +125,7 @@ async def ingest_email_to_langgraph(email_data, graph_name, url="http://127.0.0.
     thread_exists = False
     try:
         # Try to get existing thread info
-        thread_info = await client.threads.get(thread_id)
+        await client.threads.get(thread_id)
         thread_exists = True
         print(f"Found existing thread: {thread_id}")
     except Exception:
