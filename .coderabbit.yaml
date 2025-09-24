@@ -7,7 +7,3 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-integrations:
-  github:
-    auto_merge: true
-    enable_auto_merge: true

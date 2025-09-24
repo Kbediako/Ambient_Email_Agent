@@ -1,6 +1,6 @@
 jobs:
   tests:
     timeout: 40m
-    run: ./scripts/setup-env.sh bash -lc 'if command -v uv >/dev/null 2>&1; then uv sync && uv run pytest; else pip install -e .[dev] && pytest; fi'
+    run: ./scripts/setup-env.sh bash -lc 'set -euo pipefail; if command -v uv >/dev/null 2>&1; then uv sync --frozen && uv run -m pytest -q; else python -m pip install --upgrade pip setuptools wheel && python -m pip install -e .[dev] && pytest -q; fi'
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
