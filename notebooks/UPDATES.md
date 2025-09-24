@@ -2,6 +2,14 @@
 
 This file highlights recent project changes that affect the notebooks and how to run them.
 
+## 2025-09-24 Notebook refresh (@notebook-refresh-ticket)
+
+- Added live-first checklists to `agent.ipynb`, `hitl.ipynb`, `memory.ipynb`, and `evaluation.ipynb` covering `langgraph up`, Gemini env setup, and pytest commands.
+- Documented reminder worker expectations (`scripts/reminder_worker.py`) and reminder env vars inside the agent notebook.
+- Highlighted SQLite checkpoint/store overrides and LangGraph Studio memory viewer guidance.
+- Captured the HITL resume payload cheatsheet and Gemini judge toggles inline so contributors do not need to hunt through code.
+
+
 ## Environment Flags
 
 - `HITL_AUTO_ACCEPT=1`: Auto-accept HITL tool interrupts in demos/tests.

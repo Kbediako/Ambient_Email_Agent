@@ -95,6 +95,7 @@ Path | Description
 ## Additional Resources
 - `README_LOCAL.md` – local dev/test details, tmux/cron recipes, notebook tips.
 - `AGENTS.md` – agent evolution, feature changelog, evaluation modes.
+- `notebooks/UPDATES.md` – notebook refresh log, live-first checklists, reminder/HITL env toggles.
 - `CONTRIBUTING.md` – branching, review, and testing expectations.
 - `system_prompt.md` – canonical assistant instructions.
 
