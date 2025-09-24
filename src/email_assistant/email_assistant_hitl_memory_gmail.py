@@ -2,7 +2,7 @@ from typing import Any, Literal
 from collections.abc import Mapping
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from langgraph.func import task
 from langgraph.graph import StateGraph, START, END
@@ -16,7 +16,7 @@ from langgraph.types import interrupt, Command
 
 from email_assistant.tools import get_tools, get_tools_by_name
 from email_assistant.tools.gmail.prompt_templates import GMAIL_TOOLS_PROMPT
-from email_assistant.tools.gmail.gmail_tools import mark_as_read, mark_as_spam
+from email_assistant.tools.gmail.gmail_tools import mark_as_read
 from email_assistant.prompts import (
     triage_system_prompt,
     triage_user_prompt,
@@ -275,7 +275,7 @@ def triage_router_task(state: State, store: BaseStore) -> Command[Literal["triag
         tags=TRACE_AGENT_TAGS,
         thread_id=thread_id,
         run_label=email_id,
-        metadata_update={"router_model": ROUTER_MODEL_NAME},
+        metadata_update={},
     )
 
     user_prompt = triage_user_prompt.format(author=author, to=to, subject=subject, email_thread=email_thread)
@@ -337,7 +337,7 @@ def triage_router_task(state: State, store: BaseStore) -> Command[Literal["triag
             print(f"🔔 Classification: {classification.upper()} - This email requires attention.")
             if not reply_detected:
                 default_hours = int(os.getenv("REMINDER_DEFAULT_HOURS", 48))
-                due_at = datetime.now(timezone.utc) + timedelta(hours=default_hours)
+                due_at = datetime.now(datetime.UTC) + timedelta(hours=default_hours)
                 reminder_store.add_reminder(
                     thread_id=email_id,
                     subject=subject,
@@ -357,7 +357,7 @@ def triage_router_task(state: State, store: BaseStore) -> Command[Literal["triag
                 update = {"classification_decision": classification}
 
         elif classification == "ignore":
-            print(f"🚫 Classification: IGNORE - This email can be safely ignored")
+            print("🚫 Classification: IGNORE - This email can be safely ignored")
             goto = END
             update = {"classification_decision": classification}
         else:
@@ -464,7 +464,8 @@ def llm_call_task(state: State, store: BaseStore):
     try:
         author, to, subject, email_thread, email_id = parse_gmail(state.get("email_input", {}))
     except Exception:
-        author = to = subject = email_thread = email_id = ""
+        author = email_thread = ""
+        email_id = None
     thread_id = _resolve_thread_id(state)
 
     def extract_email(addr: str) -> str:
@@ -717,7 +718,8 @@ def llm_call_task(state: State, store: BaseStore):
         try:
             author, to, subject, email_thread, email_id = parse_gmail(state.get("email_input", {}))
         except Exception:
-            author = to = subject = email_thread = email_id = ""
+            author = email_thread = ""
+            email_id = None
 
         def extract_email(addr: str) -> str:
             if not addr:
@@ -1012,7 +1014,8 @@ def llm_call_task(state: State, store: BaseStore):
         try:
             author, to, subject, email_thread, email_id = parse_gmail(state.get("email_input", {}))
         except Exception:
-            author = to = subject = email_thread = email_id = ""
+            author = email_thread = ""
+            email_id = None
 
         def extract_email(addr: str) -> str:
             if not addr:
@@ -1379,7 +1382,7 @@ def should_continue(state: State, store: BaseStore) -> Literal["interrupt_handle
     try:
         author, to, subject, email_thread, email_id = parse_gmail(email_input)
     except Exception:
-        author = to = subject = email_thread = ""
+        author = email_thread = ""
         email_id = None
     thread_id = _resolve_thread_id(state)
 
@@ -1472,7 +1475,6 @@ def mark_as_read_node_task(state: State):
         tool_trace = format_messages_string(state.get("messages", []))
         output_text = format_final_output(state)
 
-        from langchain_core.messages import AIMessage
         summary = None
         try:
             for m in reversed(state.get("messages", [])):

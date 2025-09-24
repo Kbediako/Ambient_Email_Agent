@@ -1,10 +1,6 @@
-import os
-import sys
-import asyncio
 import logging
-from typing import Dict, Any, TypedDict
-from dataclasses import dataclass, field
-from langgraph.graph import StateGraph, START, END
+from dataclasses import dataclass
+from langgraph.graph import StateGraph
 from email_assistant.tools.gmail.run_ingest import fetch_and_process_emails
 from email_assistant.tracing import AGENT_PROJECT, init_project
 
@@ -61,7 +57,6 @@ async def main(state: JobKickoff):
         # Return the result status
         return {"status": "success" if result == 0 else "error", "exit_code": result}
     except Exception as e:
-        import traceback
         logger.exception(f"Error in cron job: {str(e)}")
         return {"status": "error", "error": str(e)}
 

@@ -3,7 +3,6 @@ from typing import Any
 import os
 import re
 from zoneinfo import ZoneInfo
-import re
 from langchain_core.tools import tool
 
 WEEKDAYS = [
@@ -42,7 +41,6 @@ def _coerce_preferred_day(value: Any, fallback_start_time: int | None = None) ->
     if not isinstance(value, str):
         raise ValueError("preferred_day must be a datetime or string")
 
-    original = value
     s = str(value).strip()
     # Sanitize common non-date junk (e.g., accidental file extensions or labels)
     # Keep only date/time relevant characters

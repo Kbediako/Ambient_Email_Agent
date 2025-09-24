@@ -1,5 +1,4 @@
 from typing import Literal
-import os
 
 import logging
 from email_assistant.configuration import get_llm
@@ -332,8 +331,8 @@ def triage_router_task(state: State) -> Command[Literal["response_agent", "__end
             {"role": "user", "content": user_prompt},
         ])
         classification = getattr(result, "classification", None)
-        except Exception as e:
-            logger.warning(f"Triage model error (attempt 1): {e}")
+    except Exception as e:
+        logger.warning(f"Triage model error (attempt 1): {e}")
 
     # Second attempt with an explicit instruction if needed
     if classification not in {"ignore", "respond", "notify"}:

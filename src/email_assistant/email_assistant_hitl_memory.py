@@ -1,4 +1,5 @@
 from typing import Literal
+import os
 
 from langgraph.func import task
 from langgraph.graph import StateGraph, START, END
@@ -37,7 +38,6 @@ tools = get_tools(["write_email", "schedule_meeting", "check_calendar_availabili
 tools_by_name = get_tools_by_name(tools)
 
 # Optional auto-accept for HITL in tests
-import os
 def _maybe_interrupt(requests):
     if os.getenv("HITL_AUTO_ACCEPT", "").lower() in ("1", "true", "yes"):
         return [{"type": "accept", "args": {}}]
@@ -278,7 +278,7 @@ def triage_interrupt_handler_task(state: State, store: BaseStore) -> Command[Lit
         # Update memory with feedback
         update_memory(store, ("email_assistant", "triage_preferences"), [{
             "role": "user",
-            "content": f"The user decided to respond to the email, so update the triage preferences to capture this."
+            "content": "The user decided to respond to the email, so update the triage preferences to capture this."
         }] + messages)
 
         goto = "response_agent"
@@ -287,7 +287,7 @@ def triage_interrupt_handler_task(state: State, store: BaseStore) -> Command[Lit
     elif response["type"] == "ignore":
         # Make note of the user's decision to ignore the email
         messages.append({"role": "user",
-                        "content": f"The user decided to ignore the email even though it was classified as notify. Update triage preferences to capture this."
+                        "content": "The user decided to ignore the email even though it was classified as notify. Update triage preferences to capture this."
                         })
         # Update memory with feedback 
         update_memory(store, ("email_assistant", "triage_preferences"), messages)
