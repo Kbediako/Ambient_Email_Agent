@@ -42,6 +42,11 @@ packages = ["email_assistant"]
 "*" = ["py.typed"]
 
 [tool.ruff]
+extend-exclude = [
+    "get-pip.py",
+    "notebooks/**",
+    "scripts/**",
+]
 lint.select = [
     "E",    # pycodestyle (errors)
     "F",    # pyflakes
@@ -57,7 +62,10 @@ lint.ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "UP", "T201", "I001", "E402", "F401", "F601"]
-"src/email_assistant/tracing.py" = ["D", "I001", "D202", "D100", "D102", "T201", "UP017"]
+"src/email_assistant/tracing.py" = ["D", "I001", "D202", "D100", "D102", "T201", "UP017", "F811", "UP038"]
+"src/email_assistant/eval/*" = ["F401", "F541", "UP045", "UP038"]
+"src/email_assistant/tools/reminders.py" = ["UP017"]
+"src/email_assistant/tools/base.py" = ["F401", "UP045"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
