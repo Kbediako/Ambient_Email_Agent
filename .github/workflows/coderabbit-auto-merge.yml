@@ -32,6 +32,7 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const dispatchInput = github?.event?.inputs?.pull_request;
+            core.info(`Dispatch env raw value: ${process.env.DISPATCH_PR_NUMBER ?? 'unset'}`);
             const envDispatch = process.env.DISPATCH_PR_NUMBER;
             const envInput = process.env.INPUT_PULL_REQUEST;
             const inputPrNumber = core.getInput ? core.getInput('pull_request') : undefined;
