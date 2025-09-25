@@ -1,0 +1,3 @@
+custom: {'phase': 'custom', 'step': 0}
+messages: (AIMessage(content='Demo reply for multi-mode stream', additional_kwargs={}, response_metadata={}, id='46c4d8b9-7bc3-4349-8a32-85f3f34b6d59'), {'langgraph_step': 1, 'langgraph_node': 'talk', 'langgraph_triggers': ('branch:to:talk',), 'langgraph_path': ('__pregel_pull', 'talk'), 'langgraph_checkpoint_ns': 'talk:1a482e2b-3b95-32ed-79d0-2f534665c8cf'})
+updates: {'talk': {'messages': [AIMessage(content='Demo reply for multi-mode stream', additional_kwargs={}, response_metadata={}, id='46c4d8b9-7bc3-4349-8a32-85f3f34b6d59')]}}

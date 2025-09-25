@@ -1,0 +1,5 @@
+Runtime context stream events:
+  custom: {'custom': 'context timezone=Australia/Sydney'}
+  custom: {'custom': 'eval_mode=False'}
+  updates: {'greet': {'message': 'Hello from Australia/Sydney | eval_mode=False'}}
+Final state: {'message': 'Hello from Australia/Sydney | eval_mode=False'}

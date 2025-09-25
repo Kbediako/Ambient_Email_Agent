@@ -1,0 +1,38 @@
+{
+  "raw_model_dump": {
+    "content": "Here is a summary of the LangGraph v1 upgrade plan:\n\n*   **Durability:** It introduces a persistent `checkpointer` that automatically saves the graph's state after each step. This enables long-running applications that can be paused, resumed, and can recover from failures without losing progress.\n\n*   **Streaming:** It provides comprehensive, real-time streaming of the graph's execution. This allows you to stream not just the final answer, but also intermediate results from any node and even token-by-token outputs from LLMs as they are generated.",
+    "additional_kwargs": {},
+    "response_metadata": {
+      "prompt_feedback": {
+        "block_reason": 0,
+        "safety_ratings": []
+      },
+      "finish_reason": "STOP",
+      "model_name": "gemini-2.5-pro",
+      "safety_ratings": []
+    },
+    "type": "ai",
+    "name": null,
+    "id": "run--a75f8282-0f59-4551-a0b5-86373ec18ca4-0",
+    "example": false,
+    "tool_calls": [],
+    "invalid_tool_calls": [],
+    "usage_metadata": {
+      "input_tokens": 21,
+      "output_tokens": 1344,
+      "total_tokens": 1365,
+      "input_token_details": {
+        "cache_read": 0
+      },
+      "output_token_details": {
+        "reasoning": 1227
+      }
+    }
+  },
+  "normalized_content_blocks": [
+    {
+      "type": "text",
+      "text": "Here is a summary of the LangGraph v1 upgrade plan:\n\n*   **Durability:** It introduces a persistent `checkpointer` that automatically saves the graph's state after each step. This enables long-running applications that can be paused, resumed, and can recover from failures without losing progress.\n\n*   **Streaming:** It provides comprehensive, real-time streaming of the graph's execution. This allows you to stream not just the final answer, but also intermediate results from any node and even token-by-token outputs from LLMs as they are generated."
+    }
+  ]
+}

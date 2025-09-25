@@ -1,0 +1,153 @@
+src/email_assistant/langgraph_101.py:15:model_with_tools = llm.bind_tools([write_email], tool_choice="any")
+src/email_assistant/configuration.py:2:from langchain_google_genai import ChatGoogleGenerativeAI
+src/email_assistant/configuration.py:13:        A configured ChatGoogleGenerativeAI instance.
+src/email_assistant/configuration.py:25:    return ChatGoogleGenerativeAI(model=model_name, temperature=temperature, **kwargs)
+src/email_assistant/checkpointing.py:18:from langgraph.checkpoint.sqlite import SqliteSaver
+README.md:27:5. **Human Interrupts** – HITL agents pause on tool calls using `HumanInterrupt`. Auto-accept can be enabled for demos/tests.
+README.md:68:- HITL agents surface approvals through LangGraph Agent Inbox (`HumanInterrupt`).
+research/LangChain-LangGraph-v1-research-report.md:16:### HITL / `interrupt(...)`
+README_LOCAL.md:11:- HITL flows now emit interrupts via `langgraph.prebuilt.interrupt.HumanInterrupt`, and the LLM/tool nodes are wrapped with `@task` so durable replays persist side effects.
+src/email_assistant/email_assistant.py:52:llm_router = llm.with_structured_output(RouterSchema)
+src/email_assistant/email_assistant.py:57:llm_with_tools = llm.bind_tools(tools, tool_choice="any")
+tests/test_spam_flow.py:44:    def fake_interrupt(requests):
+tests/test_spam_flow.py:67:    def fake_interrupt(requests):
+src/email_assistant/email_assistant_hitl_memory_gmail.py:11:    HumanInterrupt,
+src/email_assistant/email_assistant_hitl_memory_gmail.py:12:    HumanInterruptConfig,
+src/email_assistant/email_assistant_hitl_memory_gmail.py:80:def _maybe_interrupt(requests):
+src/email_assistant/email_assistant_hitl_memory_gmail.py:107:    return interrupt(requests)
+src/email_assistant/email_assistant_hitl_memory_gmail.py:198:llm_router = get_llm(temperature=0.0, model=ROUTER_MODEL_NAME).with_structured_output(RouterSchema)
+src/email_assistant/email_assistant_hitl_memory_gmail.py:199:llm_with_tools = get_llm(temperature=0.0, model=TOOL_MODEL_NAME).bind_tools(tools, tool_choice="any")
+src/email_assistant/email_assistant_hitl_memory_gmail.py:249:        llm = get_llm(model=MEMORY_MODEL_NAME).with_structured_output(UserPreferences)
+src/email_assistant/email_assistant_hitl_memory_gmail.py:392:    request: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:397:        config=HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:416:        response = _maybe_interrupt([request])[0]
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1277:                config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1284:                config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1291:                config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1300:            request: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1308:            response = _maybe_interrupt([request])[0]
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1335:                        confirm: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1340:                            config=HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory_gmail.py:1348:                        followup = _maybe_interrupt([confirm])[0]
+src/email_assistant/email_assistant_hitl.py:8:    HumanInterrupt,
+src/email_assistant/email_assistant_hitl.py:9:    HumanInterruptConfig,
+src/email_assistant/email_assistant_hitl.py:47:llm_router = get_llm(temperature=0.0, model=ROUTER_MODEL_NAME).with_structured_output(RouterSchema)
+src/email_assistant/email_assistant_hitl.py:50:llm_with_tools = get_llm(temperature=0.0, model=TOOL_MODEL_NAME).bind_tools(tools, tool_choice="any")
+src/email_assistant/email_assistant_hitl.py:153:    request: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl.py:158:        config=HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl.py:168:    response = interrupt([request])[0]
+src/email_assistant/email_assistant_hitl.py:271:            config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl.py:278:            config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl.py:285:            config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl.py:295:        request: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl.py:305:        response = interrupt([request])[0]
+tests/test_live_hitl_spam.py:55:    def scripted_interrupt(requests):
+src/email_assistant/eval/judges.py:23:from langchain_google_genai import ChatGoogleGenerativeAI
+src/email_assistant/eval/judges.py:84:    llm = ChatGoogleGenerativeAI(
+src/email_assistant/email_assistant_hitl_memory.py:8:    HumanInterrupt,
+src/email_assistant/email_assistant_hitl_memory.py:9:    HumanInterruptConfig,
+src/email_assistant/email_assistant_hitl_memory.py:39:def _maybe_interrupt(requests):
+src/email_assistant/email_assistant_hitl_memory.py:42:    return interrupt(requests)
+src/email_assistant/email_assistant_hitl_memory.py:54:llm_router = get_llm(temperature=0.0, model=ROUTER_MODEL_NAME).with_structured_output(RouterSchema)
+src/email_assistant/email_assistant_hitl_memory.py:57:llm_with_tools = get_llm(temperature=0.0, model=TOOL_MODEL_NAME).bind_tools(tools, tool_choice="any")
+src/email_assistant/email_assistant_hitl_memory.py:112:        llm = get_llm(model=memory_model).with_structured_output(UserPreferences)
+src/email_assistant/email_assistant_hitl_memory.py:259:    request: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl_memory.py:264:        config=HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory.py:274:    response = _maybe_interrupt([request])[0]
+src/email_assistant/email_assistant_hitl_memory.py:416:            config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory.py:423:            config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory.py:430:            config = HumanInterruptConfig(
+src/email_assistant/email_assistant_hitl_memory.py:440:        request: HumanInterrupt = HumanInterrupt(
+src/email_assistant/email_assistant_hitl_memory.py:450:        response = _maybe_interrupt([request])[0]
+AGENTS.md:44:- HITL payloads now use the typed `HumanInterrupt` helper and the tool/LLM nodes are wrapped with `@task` to follow LangGraph’s durable execution guidance.
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:12:* **Human-in-the-loop via `interrupt(..)`** and Agent Inbox interop. ([LangChain AI][4])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:14:* **`langchain-google-genai` / `ChatGoogleGenerativeAI`** (tool calling, structured output, streaming). ([LangChain Docs][6])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:15:* **`init_chat_model` routing & provider prefixing** (force `google_genai` vs Vertex default for `gemini-*`). ([LangChain][7])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:35:* Where we import **`SqliteSaver`**, **HITL/interrupt**, **stream()** call sites, **`init_chat_model`**/`ChatGoogleGenerativeAI`, and any **pre-bound tools**.
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:36:* Which notebooks or demos show `create_react_agent` vs custom `StateGraph`.
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:39:> `rg -n "from langgraph\.checkpoint\.sqlite import SqliteSaver|stream\(|HumanInterrupt|interrupt\(|create_react_agent|create_agent|init_chat_model|ChatGoogleGenerativeAI|bind_tools"`
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:77:### D) Human-in-the-Loop via `interrupt(...)`
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:79:**Goal:** ensure our HITL steps use the **`interrupt(...)` primitive** and match Agent Inbox schemas so approve/edit/accept flows resume cleanly. ([LangChain AI][4])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:83:* [ ] Confirm we use **`interrupt(...)`** (not custom exceptions) at the user-approval boundary.
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:84:* [ ] If we surface tool approvals in UI, verify payload shape matches **Agent Inbox**’s `HumanInterrupt`/`HumanResponse` contract. ([GitHub][10])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:89:**Goal:** standardize on **`ChatGoogleGenerativeAI`** for Gemini, enable **tools** + **structured output** + **streaming**; fix provider routing for `init_chat_model`. ([LangChain Docs][6])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:94:* [ ] **Routing**: Wherever we use `init_chat_model("gemini-…")`, force the provider to **Google GenAI** (to avoid defaulting to Vertex):
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:96:  * `init_chat_model("google_genai:gemini-2.5-pro", temperature=0)` **or** `init_chat_model("gemini-2.5-pro", model_provider="google_genai")`. ([LangChain][7])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:97:* [ ] **Tool calling**: Add a minimal `@tool` and bind with `llm.bind_tools([tool])`, then verify `ai_msg.tool_calls` and round-trip a `ToolMessage`. Capture output. ([LangChain Docs][6])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:98:* [ ] **Structured output**: Create a tiny Pydantic `EmailDraft` model and call `llm.with_structured_output(EmailDraft)` to prove we get typed objects back **without a second formatting pass**. Paste result. ([LangChain Docs][6])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:107:* **Message `.content_blocks`**: adjust any tracing/summarization to leverage the standardized blocks (reasoning, citations, server-side tool calls). This helps fix “raw JSON” style inputs in review UIs. ([LangChain Docs][1])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:113:* [ ] In one notebook, switch to `from langchain.agents import create_agent` and show parity. ([LangChain Docs][11])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:114:* [ ] In tracing, parse **`.content_blocks`** for cleaner Input/Output summaries (screenshot). ([LangChain Docs][1])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:123:* [ ] Note our import path is `from langgraph.checkpoint.sqlite import SqliteSaver`. Keep as-is; verify DB opened with `check_same_thread=False` if shared. ([langgraph.com.cn][12])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:133:for mode, chunk in graph.stream(
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:162:llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0)
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:163:typed = llm.with_structured_output(EmailDraft)
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:179:* **Provider routing**: `init_chat_model("gemini-…")` **defaults to Vertex** unless you force `model_provider="google_genai"` or prefix `google_genai:`. Audit all `init_chat_model` calls. ([LangChain][7])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:192:* [ ] **Tracing**: Input/Output summaries leverage **`.content_blocks`** (no raw JSON). ([LangChain Docs][1])
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:207:2\) Land the **minimal diffs** you proved (durability flags, 1 node → Runtime, streaming mode lists, notebook `create_agent` import, Gemini routing).
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:217:[6]: https://docs.langchain.com/oss/python/integrations/chat/google_generative_ai?utm_source=chatgpt.com "ChatGoogleGenerativeAI - Docs by LangChain"
+dev_tickets/LangChain-LangGraph-v-1-research-ticket.md:218:[7]: https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html?utm_source=chatgpt.com "init_chat_model — 🦜🔗 LangChain documentation"
+dev_tickets/adopt-new-features.md:9:1. Replace bespoke HITL payload dicts with `langgraph.prebuilt.interrupt.HumanInterrupt`.
+dev_tickets/adopt-new-features.md:13:## 1. `HumanInterrupt` Adoption
+dev_tickets/adopt-new-features.md:15:- **Implementation**: All HITL-capable agents (`email_assistant_hitl`, `email_assistant_hitl_memory`, `email_assistant_hitl_memory_gmail`) now construct typed interrupts via `HumanInterrupt`, `ActionRequest`, and `HumanInterruptConfig` (see `src/email_assistant/email_assistant_hitl.py:137`, `src/email_assistant/email_assistant_hitl_memory.py:134`, `src/email_assistant/email_assistant_hitl_memory_gmail.py:382`).
+dev_tickets/adopt-new-features.md:54:- **Docs**: Consider adding a short section to the Agent Inbox guide explaining the HumanInterrupt payload (action/args/config/description) for future tooling work.
+dev_tickets/library-upgrade-ticket.md:35:  - [x] Evaluate replacing manual HITL payload dicts with `langgraph.prebuilt.interrupt.HumanInterrupt`.
+dev_tickets/library-upgrade-ticket.md:41:- HITL requests across all agents now flow through `HumanInterrupt`, so any new interrupt types should use the same helper (and update the Agent Inbox schema docs if additional config flags appear).
+notebooks/memory.ipynb:223:    "from langchain.chat_models import init_chat_model\n",
+notebooks/memory.ipynb:278:    "llm_router = llm.with_structured_output(RouterSchema)\n",
+notebooks/memory.ipynb:282:    "llm_with_tools = llm.bind_tools(tools, tool_choice=\"any\")"
+notebooks/memory.ipynb:416:    "memory_update_llm = init_chat_model(\"google_genai:gemini-2.5-pro\", temperature=0.0).with_structured_output(UserPreferences)\n",
+notebooks/memory.ipynb:583:    "    response = interrupt([request])[0]\n",
+notebooks/memory.ipynb:815:    "        response = interrupt([request])[0]\n",
+notebooks/memory.ipynb:1124:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_1):\n",
+notebooks/memory.ipynb:1160:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_1):\n",
+notebooks/memory.ipynb:1196:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_1):\n",
+notebooks/memory.ipynb:1280:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_2):\n",
+notebooks/memory.ipynb:1328:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"edit\", \"args\": {\"args\": edited_schedule_args}}]), config=thread_config_2):\n",
+notebooks/memory.ipynb:1395:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"edit\", \"args\": {\"args\": edited_email_args}}]), config=thread_config_2):\n",
+notebooks/memory.ipynb:1499:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_5):\n",
+notebooks/memory.ipynb:1537:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"response\", \"args\": \"Please schedule this for 30 minutes instead of 45 minutes, and I prefer afternoon meetings after 2pm.\"}]), config=thread_config_5):\n",
+notebooks/memory.ipynb:1582:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_5):\n",
+notebooks/memory.ipynb:1620:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"response\", \"args\": \"Shorter and less formal. Include a closing statement about looking forward to the meeting!\"}]), config=thread_config_5):\n",
+notebooks/memory.ipynb:1668:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_5):\n",
+dev_tickets/notebook-refresh-ticket.md:9:- The notebooks were last curated before the LangGraph durability overhaul, HumanInterrupt adoption, and Gmail spam guardrails described in recent tickets (`library-upgrade-ticket.md`, `adopt-new-features.md`).
+dev_tickets/notebook-refresh-ticket.md:15:- Sync notebook helper imports with `src/email_assistant/` (e.g., correct module paths, updated graph factory signatures, `@task`/`HumanInterrupt` usage).
+dev_tickets/ag-ui-copilotkit-research.md:19:- **HITL flows**: `useLangGraphInterrupt` handles LangGraph `interrupt()` calls, rendering custom approval UIs and resolving with operator feedback. CopilotKit documents both interrupt-driven and node-driven HITL; the interrupt flow aligns with our existing human approval interceptors (`human-in-the-loop/interrupt-flow.mdx`).
+notebooks/langgraph_101.ipynb:16:    "[Chat models](https://python.langchain.com/docs/concepts/chat_models/) are the foundation of LLM applications. They are typically accessed through a chat interface that takes a list of [messages](https://python.langchain.com/docs/concepts/messages/) as input and returns a [message](https://python.langchain.com/docs/concepts/messages/) as output. LangChain provides [a standardized interface for chat models](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html), making it easy to [access many different providers](https://python.langchain.com/docs/integrations/chat/)."
+notebooks/langgraph_101.ipynb:37:    "from langchain.chat_models import init_chat_model\n",
+notebooks/langgraph_101.ipynb:38:    "llm = init_chat_model(\"google_genai:gemini-2.5-pro\", temperature=0)"
+notebooks/langgraph_101.ipynb:48:    "The `init_chat_model` interface provides [standardized](https://python.langchain.com/docs/concepts/runnables/) methods for using chat models, which include:\n",
+notebooks/langgraph_101.ipynb:147:    "Tools can be [called](https://python.langchain.com/docs/concepts/tool_calling/) by LLMs. When a tool is bound to the model, the model can choose to call the tool by returning a structured output with tool arguments. We use the `bind_tools` method to augment an LLM with tools.\n",
+notebooks/langgraph_101.ipynb:164:    "model_with_tools = llm.bind_tools([write_email], tool_choice=\"any\", parallel_tool_calls=False)\n",
+notebooks/langgraph_101.ipynb:467:    "from langgraph.prebuilt import create_react_agent\n",
+notebooks/langgraph_101.ipynb:469:    "agent = create_react_agent(\n",
+notebooks/langgraph_101.ipynb:515:    "agent = create_react_agent(\n",
+notebooks/langgraph_101.ipynb:602:    "    feedback = interrupt(\"Please provide feedback:\")\n",
+notebooks/langgraph_101.ipynb:651:    "for event in graph.stream(initial_input, thread, stream_mode=\"updates\"):\n",
+notebooks/langgraph_101.ipynb:674:    "for event in graph.stream(\n",
+dev_tickets/library-upgrade-research.md:52:- **HITL primitives** – `langgraph.prebuilt.interrupt.HumanInterrupt` wrapper formalizes request schema. Evaluate whether replacing manual dictionaries with this helper simplifies our Gmail agent’s resume payloads.
+dev_tickets/library-upgrade-research.md:75:- Re-run Gemini tool binding smoke tests. No changes observed to `tool_choice` APIs in this range, but sanity-check `model.bind_tools` still works with the `langchain-google-genai` wrapper.
+dev_tickets/library-upgrade-research.md:93:   - HITL requests use `HumanInterrupt`; tool/LLM nodes run through `@task` helpers for durable execution.
+notebooks/evaluation.ipynb:418:    "        from langchain.chat_models import init_chat_model\n",
+notebooks/evaluation.ipynb:419:    "        criteria_eval_llm = init_chat_model(\"google_genai:gemini-2.5-pro\")\n",
+notebooks/evaluation.ipynb:420:    "        criteria_eval_structured_llm = criteria_eval_llm.with_structured_output(CriteriaGrade)\n",
+notebooks/evaluation.ipynb:425:    "        def with_structured_output(self, *a, **k):\n",
+notebooks/hitl.ipynb:69:    "- **Durable execution**: Our production graph wraps router/tool nodes with `@task` and relies on `langgraph.prebuilt.interrupt.HumanInterrupt`. When editing the code walkthrough below, keep those helpers in place so replays survive restarts.\n",
+notebooks/hitl.ipynb:141:    "from langchain.chat_models import init_chat_model\n",
+notebooks/hitl.ipynb:196:    "llm_router = llm.with_structured_output(RouterSchema)\n",
+notebooks/hitl.ipynb:200:    "llm_with_tools = llm.bind_tools(tools, tool_choice=\"any\")"
+notebooks/hitl.ipynb:360:    "    response = interrupt([request])[0]\n",
+notebooks/hitl.ipynb:580:    "        response = interrupt([request])[0]\n",
+notebooks/hitl.ipynb:797:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_1):\n",
+notebooks/hitl.ipynb:841:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_1):\n",
+notebooks/hitl.ipynb:909:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_2):\n",
+notebooks/hitl.ipynb:963:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"edit\", \"args\": {\"args\": edited_schedule_args}}]), config=thread_config_2):\n",
+notebooks/hitl.ipynb:1011:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"edit\", \"args\": {\"args\": edited_email_args}}]), config=thread_config_2):\n",
+notebooks/hitl.ipynb:1100:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_5):\n",
+notebooks/hitl.ipynb:1138:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"response\", \"args\": \"Please schedule this for 30 minutes instead of 45 minutes, and I prefer afternoon meetings after 2pm.\"}]), config=thread_config_5):\n",
+notebooks/hitl.ipynb:1164:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_5):\n",
+notebooks/hitl.ipynb:1208:    "    for chunk in graph.stream(Command(resume=[{\"type\": \"response\", \"args\": \"Shorter and less formal. Include a closing statement about looking forward to the meeting!\"}]), config=thread_config_5):\n",
+notebooks/hitl.ipynb:1235:    "for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_5):\n",
+notebooks/hitl.ipynb:1318:    "for chunk in graph.stream({\"email_input\": email_input_respond}, config=thread_config_6):\n",
+notebooks/hitl.ipynb:1342:    "for chunk in graph.stream(Command(resume=[{\"type\": \"response\", \"args\": \"Let's do indian.\"}]), config=thread_config_6):\n",
+notebooks/hitl.ipynb:1366:    "for chunk in graph.stream(Command(resume=[{\"type\": \"accept\"}]), config=thread_config_6):\n",

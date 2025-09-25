@@ -1,0 +1,4 @@
+Initial invoke payload: {'__interrupt__': [Interrupt(value=[{'action_request': {'action': 'demo.send_email', 'args': {'subject': 'Demo', 'content': 'Approve?'}}, 'config': {'allow_accept': True, 'allow_edit': True, 'allow_ignore': False, 'allow_respond': True}, 'description': 'Pause before sending the draft'}], id='a0fb711bec20a8a9dffd1460732ca1b6')]}
+Resume payload: [{'type': 'accept', 'args': {'reason': 'Auto-accept demo'}}]
+Post-resume result: {'approval': {'type': 'accept', 'args': {'reason': 'Auto-accept demo'}}, 'status': 'resumed'}
+Final snapshot: {'approval': {'type': 'accept', 'args': {'reason': 'Auto-accept demo'}}, 'status': 'resumed'}
