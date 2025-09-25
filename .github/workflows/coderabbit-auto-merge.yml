@@ -28,6 +28,22 @@ jobs:
               return;
             }
 
+            const { owner, repo } = context.repo;
+
+            // Fetch live mergeability to avoid enabling auto-merge while GitHub marks
+            // the PR as "unstable" (e.g., required checks still running/failing).
+            const prDetails = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pr.number,
+            });
+            const mergeableState = prDetails.data.mergeable_state;
+            const mergeableFlag = prDetails.data.mergeable;
+            if (!mergeableFlag || !["clean", "has_hooks", "stable"].includes(mergeableState)) {
+              core.warning(`PR mergeable_state=${mergeableState} mergeable=${mergeableFlag}; skipping auto-merge enablement until GitHub reports a stable state.`);
+              return;
+            }
+
             const query = `mutation($prId: ID!, $mergeMethod: PullRequestMergeMethod!) {
               enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: $mergeMethod }) {
                 pullRequest {
