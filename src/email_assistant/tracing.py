@@ -13,9 +13,10 @@ from typing import Any, Callable, Iterable, Mapping, Sequence as SeqType
 from datetime import datetime, timezone
 
 try:  # pragma: no cover - zoneinfo only present on py3.9+
-    from zoneinfo import ZoneInfo
-except Exception:  # pragma: no cover - fallback when tzdata missing
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except ModuleNotFoundError:  # pragma: no cover - fallback when tzdata missing
     ZoneInfo = None  # type: ignore
+    ZoneInfoNotFoundError = None  # type: ignore
 
 from email_assistant.utils import extract_message_content, parse_gmail
 from email_assistant import version as EMAIL_ASSISTANT_VERSION
@@ -81,7 +82,7 @@ def _project_with_date(base: str) -> str:
     if ZoneInfo is not None:
         try:
             tzinfo = ZoneInfo(_TRACE_TIMEZONE_NAME)
-        except Exception:
+        except ZoneInfoNotFoundError:  # type: ignore[misc]
             logger.warning(
                 "Unknown EMAIL_ASSISTANT_TRACE_TIMEZONE=%r; falling back to UTC",
                 _TRACE_TIMEZONE_NAME,
