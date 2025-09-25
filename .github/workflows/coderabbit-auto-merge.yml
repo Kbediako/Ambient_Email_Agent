@@ -55,7 +55,7 @@ jobs:
               core.warning(`PR mergeable_state=${mergeableState} mergeable=null; mergeability still computing. Will retry later.`);
               return;
             }
-            if (mergeableFlag === false && mergeableState !== "has_hooks") {
+            if (mergeableFlag === false && !["has_hooks", "behind"].includes(mergeableState)) {
               core.warning(`PR mergeable_state=${mergeableState} mergeable=${mergeableFlag}; skipping auto-merge enablement until GitHub reports a stable state.`);
               return;
             }
