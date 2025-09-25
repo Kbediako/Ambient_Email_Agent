@@ -31,6 +31,7 @@ Ship the LangChain/LangGraph v1.0 upgrade across the production Gmail HITL agent
 - **Runtime Context & Tracing Updates**
   - [ ] Implement the `Runtime[Context]` refactor for triage/router (and related nodes) and pass context from runners/tests.
   - [ ] Ensure `prime_parent_run` / tracing metadata accepts the new context payloads.
+  - [ ] Add focused regression coverage so triage/router nodes exercise the new context plumbing offline and live.
 
 ### Phase 3 — Gemini & Tooling Updates
 - **Model Initialisation & Routing**
