@@ -192,7 +192,14 @@ jobs:
                 const message = error.errors?.map(e => e.message).join('; ') || error.message;
                 if (mergeMethod !== "SQUASH" && /not (allowed|enabled)|disabled/i.test(message)) {
                   core.warning(`Merge method "${mergeMethod}" not permitted; falling back to SQUASH.`);
+                  mergeMethod = "SQUASH";
                   result = await enable("SQUASH");
+                } else if (/clean status/i.test(message)) {
+                  const restMethod = mergeMethod === "REBASE" ? "rebase" : mergeMethod === "MERGE" ? "merge" : "squash";
+                  core.warning(`Auto-merge API reported clean status; attempting direct ${restMethod} merge.`);
+                  await github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: restMethod });
+                  core.info(`Pull request #${prNumber} merged directly via ${restMethod}.`);
+                  return;
                 } else {
                   throw error;
                 }
