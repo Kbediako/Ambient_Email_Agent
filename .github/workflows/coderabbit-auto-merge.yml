@@ -32,16 +32,27 @@ jobs:
 
             // Fetch live mergeability to avoid enabling auto-merge while GitHub marks
             // the PR as "unstable" (e.g., required checks still running/failing).
-            const prDetails = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: pr.number,
-            });
+            let prDetails;
+            try {
+              prDetails = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number,
+              });
+            } catch (error) {
+              const message = error.errors?.map(e => e.message).join('; ') || error.message;
+              core.warning(`Unable to fetch pull request mergeability: ${message}. Will retry on the next approval event.`);
+              return;
+            }
             const mergeableState = prDetails.data.mergeable_state;
             const mergeableFlag = prDetails.data.mergeable;
             const allowedStates = ["clean", "has_hooks", "stable"];
             if (!allowedStates.includes(mergeableState)) {
               core.warning(`PR mergeable_state=${mergeableState} mergeable=${mergeableFlag}; skipping auto-merge enablement until GitHub reports a stable state.`);
+              return;
+            }
+            if (mergeableFlag === null) {
+              core.warning(`PR mergeable_state=${mergeableState} mergeable=null; mergeability still computing. Will retry later.`);
               return;
             }
             if (mergeableFlag === false && mergeableState !== "has_hooks") {
