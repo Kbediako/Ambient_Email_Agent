@@ -38,6 +38,7 @@ This project demonstrates an evolving AI email assistant built with LangGraph an
 - Use the acceptance criteria and testing notes sections of each ticket to capture verification steps (live vs offline) so future updates reuse the same patterns.
 - After finishing code edits, run a `coderabbit` review from the repo root (default: `coderabbit review --plain`; use `--prompt-only` for shorter summaries) and include the exact command in your handoff so reviewers can retrace bot interactions or reproduce the check locally.
 - When running inside non-interactive shells (e.g., Codex CLI), `coderabbit` may fail with a raw-mode error before printing results. Attempt `CODERABBIT_DISABLE_TUI=1 coderabbit review --plain`; if that still fails, note the failure in your handoff and rely on the PR’s automated CodeRabbit job.
+- Cursor Bugbot posts its findings via the check-run summary (not standard PR comments). When triaging feedback, fetch the latest check runs with `gh api repos/<owner>/<repo>/commits/<sha>/check-runs` to review bugbot warnings before resolving them.
 
 ## Recent Changes and Improvements
 
