@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextvars
+import logging
 import os
 import re
 from collections.abc import Mapping, Sequence
@@ -10,6 +11,11 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Sequence as SeqType
 
 from datetime import datetime, timezone
+
+try:  # pragma: no cover - zoneinfo only present on py3.9+
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover - fallback when tzdata missing
+    ZoneInfo = None  # type: ignore
 
 from email_assistant.utils import extract_message_content, parse_gmail
 from email_assistant import version as EMAIL_ASSISTANT_VERSION
@@ -55,7 +61,11 @@ else:
         RunTree = _RUN_TREE
 
 
+logger = logging.getLogger(__name__)
+
+
 _TRACE_DEBUG = os.getenv("EMAIL_ASSISTANT_TRACE_DEBUG", "").lower() in ("1", "true", "yes")
+_TRACE_TIMEZONE_NAME = os.getenv("EMAIL_ASSISTANT_TRACE_TIMEZONE", "Australia/Sydney")
 
 _ROOT_RUN_TREE: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
     "email_assistant_root_run_tree", default=None
@@ -67,7 +77,21 @@ def _debug_log(message: str) -> None:
         print(f"[trace-debug] {message}")
 
 def _project_with_date(base: str) -> str:
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    tzinfo = timezone.utc
+    if ZoneInfo is not None:
+        try:
+            tzinfo = ZoneInfo(_TRACE_TIMEZONE_NAME)
+        except Exception:
+            logger.warning(
+                "Unknown EMAIL_ASSISTANT_TRACE_TIMEZONE=%r; falling back to UTC",
+                _TRACE_TIMEZONE_NAME,
+            )
+        else:
+            # Ensure tzdata is available even if underlying OS lacks zoneinfo.
+            if tzinfo is None:
+                tzinfo = timezone.utc
+
+    today = datetime.now(tzinfo).strftime("%Y%m%d")
     prefix, sep, suffix = base.partition(":")
     if sep:
         return f"{prefix}-{suffix.upper()}-{today}"

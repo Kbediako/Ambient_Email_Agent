@@ -7,6 +7,7 @@ LangGraph 0.6 guidance around Sqlite connection lifecycle management.
 from __future__ import annotations
 
 import atexit
+import logging
 import os
 import sqlite3
 from functools import lru_cache
@@ -23,6 +24,10 @@ from langgraph.store.sqlite import SqliteStore
 # remaining easy to clean up.
 _DEFAULT_CHECKPOINT_FILENAME = "email_assistant_checkpoints.sqlite"
 _DEFAULT_STORE_FILENAME = "email_assistant_store.sqlite"
+_DEFAULT_SQLITE_TIMEOUT_SECONDS = 30.0
+
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_path(env_value: Optional[str], fallback_filename: str) -> Path:
@@ -40,12 +45,40 @@ def _resolve_path(env_value: Optional[str], fallback_filename: str) -> Path:
     return path
 
 
+def _resolve_timeout_seconds() -> float:
+    """Parse the SQLite timeout env var, falling back when invalid."""
+
+    raw_value = os.getenv("EMAIL_ASSISTANT_SQLITE_TIMEOUT")
+    if raw_value is None:
+        return _DEFAULT_SQLITE_TIMEOUT_SECONDS
+
+    try:
+        timeout = float(raw_value)
+    except ValueError:
+        logger.warning(
+            "Invalid EMAIL_ASSISTANT_SQLITE_TIMEOUT=%r; falling back to %.1fs",
+            raw_value,
+            _DEFAULT_SQLITE_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_SQLITE_TIMEOUT_SECONDS
+
+    if timeout <= 0:
+        logger.warning(
+            "Non-positive EMAIL_ASSISTANT_SQLITE_TIMEOUT=%r; falling back to %.1fs",
+            raw_value,
+            _DEFAULT_SQLITE_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_SQLITE_TIMEOUT_SECONDS
+
+    return timeout
+
+
 @lru_cache(maxsize=4)
 def get_sqlite_checkpointer(path: Optional[str] = None) -> SqliteSaver:
     """Return a cached SqliteSaver configured for the requested path."""
 
     resolved_path = _resolve_path(path or os.getenv("EMAIL_ASSISTANT_CHECKPOINT_PATH"), _DEFAULT_CHECKPOINT_FILENAME)
-    timeout_seconds = float(os.getenv("EMAIL_ASSISTANT_SQLITE_TIMEOUT", "30"))
+    timeout_seconds = _resolve_timeout_seconds()
     conn = sqlite3.connect(
         str(resolved_path),
         check_same_thread=False,
@@ -53,7 +86,6 @@ def get_sqlite_checkpointer(path: Optional[str] = None) -> SqliteSaver:
     )
     # Improve concurrency for parallel pytest runs / LangSmith judges.
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout = %d" % int(timeout_seconds * 1000))
     atexit.register(conn.close)
     return SqliteSaver(conn)
@@ -64,14 +96,13 @@ def get_sqlite_store(path: Optional[str] = None) -> SqliteStore:
     """Return a cached SqliteStore (with schema ensured) for the requested path."""
 
     resolved_path = _resolve_path(path or os.getenv("EMAIL_ASSISTANT_STORE_PATH"), _DEFAULT_STORE_FILENAME)
-    timeout_seconds = float(os.getenv("EMAIL_ASSISTANT_SQLITE_TIMEOUT", "30"))
+    timeout_seconds = _resolve_timeout_seconds()
     conn = sqlite3.connect(
         str(resolved_path),
         check_same_thread=False,
         timeout=timeout_seconds,
     )
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout = %d" % int(timeout_seconds * 1000))
     atexit.register(conn.close)
     store = SqliteStore(conn)

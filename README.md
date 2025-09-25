@@ -54,6 +54,7 @@ Helpful toggles (leave unset for live runs):
 - `EMAIL_ASSISTANT_EVAL_MODE=1` – deterministic, offline tool calls.
 - `EMAIL_ASSISTANT_RECIPIENT_IN_EMAIL_ADDRESS=1` – evaluator compatibility mode.
 - `EMAIL_ASSISTANT_SQLITE_TIMEOUT=60` – optional override (seconds) for SQLite busy timeouts when running LangSmith traces or parallel judges; defaults to 30.
+- `EMAIL_ASSISTANT_TRACE_TIMEZONE=Australia/Sydney` – override the timezone used when auto-grouping LangSmith projects (`email-assistant-AGENT-YYYYMMDD`). Defaults to Australia/Sydney.
 
 ### Launch LangGraph Studio or CLI
 ```bash

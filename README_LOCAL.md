@@ -65,6 +65,7 @@ This repo supports both offline-friendly tests and live model evaluation.
   - `EMAIL_ASSISTANT_EVAL_MODE=1` (synthesize tool calls without a live LLM)
   - Optional: `EMAIL_ASSISTANT_RECIPIENT_IN_EMAIL_ADDRESS=1` (compat mode for evaluators that expect the reply recipient in `send_email_tool.email_address` instead of your address). Off by default for live-correct Gmail behavior.
   - Optional: `EMAIL_ASSISTANT_SQLITE_TIMEOUT=60` (seconds) to extend SQLite busy handling when LangSmith tracing or judge runs create extra contention; default is 30.
+  - Optional: `EMAIL_ASSISTANT_TRACE_TIMEZONE=Australia/Sydney` to change the timezone used for daily LangSmith project grouping. Defaults to Australia/Sydney.
 
 ### Notebooks
 
