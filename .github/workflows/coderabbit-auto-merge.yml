@@ -87,15 +87,20 @@ jobs:
               mergeableFlag = prDetails.data.mergeable;
             }
 
-            if (!allowedStates.includes(mergeableState)) {
+            if (mergeableFlag === null) {
+              core.warning(`PR mergeable_state=${mergeableState} mergeable=null after ${maxRetries} retries; mergeability still computing. Will retry later.`);
+              return;
+            }
+            const isAllowedState = allowedStates.includes(mergeableState);
+            const isTransientButMergeable = transientStates.includes(mergeableState) && mergeableFlag === true;
+            if (!isAllowedState && !isTransientButMergeable) {
               core.warning(
                 `PR mergeable_state=${mergeableState} mergeable=${mergeableFlag}; skipping auto-merge enablement until GitHub reports a stable state.`
               );
               return;
             }
-            if (mergeableFlag === null) {
-              core.warning(`PR mergeable_state=${mergeableState} mergeable=null after ${maxRetries} retries; mergeability still computing. Will retry later.`);
-              return;
+            if (isTransientButMergeable) {
+              core.info(`mergeable_state=${mergeableState} reported with mergeable=true; proceeding with auto-merge enablement.`);
             }
             if (mergeableFlag === false && !["has_hooks", "behind"].includes(mergeableState)) {
               core.warning(`PR mergeable_state=${mergeableState} mergeable=${mergeableFlag}; skipping auto-merge enablement until GitHub reports a stable state.`);
