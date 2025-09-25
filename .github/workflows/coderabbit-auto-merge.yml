@@ -46,7 +46,7 @@ jobs:
             }
             const mergeableState = prDetails.data.mergeable_state;
             const mergeableFlag = prDetails.data.mergeable;
-            const allowedStates = ["clean", "has_hooks", "stable"];
+            const allowedStates = ["clean", "has_hooks", "stable", "behind"];
             if (!allowedStates.includes(mergeableState)) {
               core.warning(`PR mergeable_state=${mergeableState} mergeable=${mergeableFlag}; skipping auto-merge enablement until GitHub reports a stable state.`);
               return;
