@@ -37,6 +37,7 @@ jobs:
             const inputPrNumber = core.getInput ? core.getInput('pull_request') : undefined;
             const prNumberRaw = pr?.number ?? dispatchInput ?? inputPrNumber ?? envInput ?? envDispatch;
             const prNumber = prNumberRaw ? Number(prNumberRaw) : undefined;
+            core.info(`Resolved prNumberRaw=${prNumberRaw ?? 'undefined'} prNumber=${prNumber ?? 'undefined'}`);
             if (!prNumber || Number.isNaN(prNumber)) {
               core.setFailed('No pull request number available; provide `pull_request` input when dispatching manually.');
               return;
