@@ -3,6 +3,12 @@ name: Enable auto-merge after CodeRabbit approval
 on:
   pull_request_review:
     types: [submitted]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: "PR number to enable auto-merge for"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -10,7 +16,11 @@ permissions:
 
 jobs:
   enable-auto-merge:
-    if: contains(fromJson('["coderabbitai","coderabbitai[bot]","coderabbit","coderabbit[bot]","CodeRabbit","CodeRabbit[bot]"]'), github.event.review.user.login) && github.event.review.state == 'approved'
+    if: >-
+      (github.event_name == 'pull_request_review'
+        && contains(fromJson('["coderabbitai","coderabbitai[bot]","coderabbit","coderabbit[bot]","CodeRabbit","CodeRabbit[bot]"]'), github.event.review.user.login)
+        && github.event.review.state == 'approved')
+      || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Enable GitHub auto-merge
@@ -19,21 +29,45 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
-            if (pr.draft) {
-              core.info("PR is draft; skipping auto-merge enablement.");
-              return;
-            }
-            if (pr.state !== "open") {
-              core.info(`PR state is ${pr.state}; skipping auto-merge enablement.`);
+            const inputPrNumber = core.getInput ? core.getInput('pull_request') : undefined;
+            const prNumber = pr?.number ?? (inputPrNumber ? Number(inputPrNumber) : undefined);
+            if (!prNumber || Number.isNaN(prNumber)) {
+              core.setFailed('No pull request number available; provide `pull_request` input when dispatching manually.');
               return;
             }
 
             const { owner, repo } = context.repo;
 
+            const fetchLivePr = async () => {
+              return github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            };
+
+            let prSnapshot = pr;
+            if (!prSnapshot) {
+              core.info(`Fetching PR #${prNumber} details for manual dispatch.`);
+              try {
+                const response = await fetchLivePr();
+                prSnapshot = response.data;
+              } catch (error) {
+                const message = error.errors?.map(e => e.message).join('; ') || error.message;
+                core.setFailed(`Unable to fetch PR #${prNumber}: ${message}`);
+                return;
+              }
+            }
+
+            if (prSnapshot.draft) {
+              core.info("PR is draft; skipping auto-merge enablement.");
+              return;
+            }
+            if (prSnapshot.state !== "open") {
+              core.info(`PR state is ${prSnapshot.state}; skipping auto-merge enablement.`);
+              return;
+            }
+
             // Fetch live mergeability to avoid enabling auto-merge while GitHub marks
             // the PR as "unstable" (e.g., required checks still running/failing).
             const fetchMergeability = async () => {
-              return github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+              return github.rest.pulls.get({ owner, repo, pull_number: prNumber });
             };
 
             let prDetails;
@@ -132,7 +166,8 @@ jobs:
                 mergeMethod = "SQUASH";
               }
               core.info(`Attempting to enable auto-merge with method: ${mergeMethod}`);
-              const enable = async (method) => github.graphql(query, { prId: pr.node_id, mergeMethod: method });
+              const prNodeId = pr?.node_id ?? prSnapshot.node_id;
+              const enable = async (method) => github.graphql(query, { prId: prNodeId, mergeMethod: method });
               let result;
               try {
                 result = await enable(mergeMethod);
@@ -146,7 +181,7 @@ jobs:
                 }
               }
               const enabledBy = result?.enablePullRequestAutoMerge?.pullRequest?.autoMergeRequest?.enabledBy?.login;
-              core.info(`Auto-merge enabled by ${enabledBy || 'workflow'} for PR #${pr.number}.`);
+              core.info(`Auto-merge enabled by ${enabledBy || 'workflow'} for PR #${prNumber}.`);
             } catch (error) {
               const message = error.errors?.map(e => e.message).join('; ') || error.message;
               if (message.match(/already enabled|mergeable|Cannot enable auto-merge/i)) {
