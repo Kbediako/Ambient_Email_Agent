@@ -36,7 +36,16 @@ jobs:
             const envDispatch = process.env.DISPATCH_PR_NUMBER;
             const envInput = process.env.INPUT_PULL_REQUEST;
             const inputPrNumber = core.getInput ? core.getInput('pull_request') : undefined;
-            const prNumberRaw = pr?.number ?? dispatchInput ?? inputPrNumber ?? envInput ?? envDispatch;
+            const firstNonEmpty = (...values) => {
+              for (const value of values) {
+                if (value === undefined || value === null) continue;
+                const text = typeof value === 'string' ? value.trim() : value;
+                if (text === '' || text === null || text === undefined) continue;
+                return value;
+              }
+              return undefined;
+            };
+            const prNumberRaw = firstNonEmpty(pr?.number, dispatchInput, inputPrNumber, envInput, envDispatch);
             const prNumber = prNumberRaw ? Number(prNumberRaw) : undefined;
             core.info(`Resolved prNumberRaw=${prNumberRaw ?? 'undefined'} prNumber=${prNumber ?? 'undefined'}`);
             if (!prNumber || Number.isNaN(prNumber)) {
