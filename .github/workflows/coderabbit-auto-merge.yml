@@ -29,8 +29,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
+            const dispatchInput = github?.event?.inputs?.pull_request;
             const inputPrNumber = core.getInput ? core.getInput('pull_request') : undefined;
-            const prNumber = pr?.number ?? (inputPrNumber ? Number(inputPrNumber) : undefined);
+            const prNumberRaw = pr?.number ?? dispatchInput ?? inputPrNumber;
+            const prNumber = prNumberRaw ? Number(prNumberRaw) : undefined;
             if (!prNumber || Number.isNaN(prNumber)) {
               core.setFailed('No pull request number available; provide `pull_request` input when dispatching manually.');
               return;
