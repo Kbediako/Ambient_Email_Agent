@@ -30,8 +30,9 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const dispatchInput = github?.event?.inputs?.pull_request;
+            const envInput = process.env.INPUT_PULL_REQUEST;
             const inputPrNumber = core.getInput ? core.getInput('pull_request') : undefined;
-            const prNumberRaw = pr?.number ?? dispatchInput ?? inputPrNumber;
+            const prNumberRaw = pr?.number ?? dispatchInput ?? inputPrNumber ?? envInput;
             const prNumber = prNumberRaw ? Number(prNumberRaw) : undefined;
             if (!prNumber || Number.isNaN(prNumber)) {
               core.setFailed('No pull request number available; provide `pull_request` input when dispatching manually.');
