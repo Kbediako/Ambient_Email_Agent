@@ -7,15 +7,16 @@ def get_tools(
     include_gmail: bool = False,
     include_progress: bool = False,
 ) -> List[BaseTool]:
-    """Get specified tools or all tools if tool_names is None.
+    """
+    Return the requested tool objects, or all available tools when no specific names are provided.
     
-    Args:
-        tool_names: Optional list of tool names to include. If None, returns all tools.
-        include_gmail: Whether to include Gmail tools. Defaults to False.
-        include_progress: Whether to include streaming progress helper tools.
-        
+    Parameters:
+        tool_names (Optional[List[str]]): Names of tools to return; if None, all available tools are returned.
+        include_gmail (bool): Include Gmail-specific tools when True.
+        include_progress (bool): Include streaming progress helper tools when True or if any requested name is a progress tool.
+    
     Returns:
-        List of tool objects
+        List[BaseTool]: Tool objects matching the requested names, or all available tools if `tool_names` is None.
     """
     # Import default tools
     from email_assistant.tools.default.email_tools import write_email, Done, Question

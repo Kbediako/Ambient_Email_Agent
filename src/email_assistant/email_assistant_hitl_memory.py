@@ -46,7 +46,14 @@ tools_by_name = get_tools_by_name(tools)
 
 
 def _invoke_tool_with_logging(tool_name: str, args: dict) -> str:
-    """Invoke a tool, log the output, and keep error telemetry consistent."""
+    """
+    Invoke a named tool, record its result as a telemetry child run, and return the tool's observation.
+    
+    If the tool raises an exception, capture the exception, record error metadata for telemetry, and return a string describing the error.
+    
+    Returns:
+        str: The tool's observation output, or an error string prefixed with `ToolException:` or `Error:` when an exception occurred.
+    """
 
     tool = tools_by_name[tool_name]
     metadata_update = None
@@ -68,12 +75,37 @@ def _invoke_tool_with_logging(tool_name: str, args: dict) -> str:
 
 # Optional auto-accept for HITL in tests
 def _maybe_interrupt(requests):
-    """Optionally auto-handle interrupts when demos/tests enable auto-accept."""
+    """
+    Decide whether to synthesize human-in-the-loop actions automatically or defer to normal interrupt handling.
+    
+    If the environment variable HITL_AUTO_ACCEPT is set to "1", "true", or "yes" (case-insensitive), this function returns a list of synthesized action dictionaries for each request; otherwise it defers to the runtime's standard interrupt handling.
+    
+    Parameters:
+        requests (Iterable[Any] | None): Iterable of interrupt request objects or dicts. Each request may include a `config` with boolean attributes `allow_accept`, `allow_respond`, or `allow_ignore`, and an `action_request` that may contain an `action` string.
+    
+    Returns:
+        list[dict] | Any: When auto-accept is enabled, a list of synthesized actions where each element is a dict with keys:
+            - `type`: one of `"accept"`, `"response"`, or `"ignore"`.
+            - `args`: additional data for the action (empty dict or response text).
+        Otherwise, the result of the normal interrupt processing.
+    """
 
     if os.getenv("HITL_AUTO_ACCEPT", "").lower() not in ("1", "true", "yes"):
         return interrupt(requests)
 
     def _allow(config: Any, attr: str) -> bool:
+        """
+        Determine whether a configuration enables a named attribute.
+        
+        Treats None as disabled. If `config` is a dict, checks the key `attr`; otherwise checks the attribute `attr` on the object and returns its truthiness.
+        
+        Parameters:
+            config (Any): A mapping or object representing configuration; may be None.
+            attr (str): The attribute or key name to check.
+        
+        Returns:
+            True if the attribute/key is present and truthy, False otherwise.
+        """
         if config is None:
             return False
         if isinstance(config, dict):
@@ -219,12 +251,13 @@ def triage_router_task(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
-    """Analyze email content to decide if we should respond, notify, or ignore.
-
-    The triage step prevents the assistant from wasting time on:
-    - Marketing emails and spam
-    - Company-wide announcements
-    - Messages meant for other teams
+    """
+    Decide whether an incoming email should be responded to, sent for human review, or ignored.
+    
+    Uses stored triage and response preferences and the router LLM to classify the email, primes the parent run with metadata, and returns a Command directing the workflow. The Command's update includes a "classification_decision" and, when appropriate, a prepared user message for the response agent. If the classification is invalid, the function defaults to "respond".
+    
+    Returns:
+        Command: goto is one of "response_agent", "triage_interrupt_handler", or "__end__"; update contains the fields required by the next node (for example, "classification_decision" and optionally "messages").
     """
     _, _, thread_id, metadata = extract_runtime_metadata(runtime)
 
@@ -335,7 +368,12 @@ def triage_router(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
-    """Synchronously execute the triage router task."""
+    """
+    Run the triage router synchronously to obtain the next workflow command.
+    
+    Returns:
+        Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]: The next node command indicating whether to route to `triage_interrupt_handler`, `response_agent`, or `__end__`.
+    """
 
     return triage_router_task(state, store=store, runtime=runtime).result()
 
@@ -344,7 +382,18 @@ def triage_interrupt_handler_task(
     state: State,
     store: BaseStore,
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Handles interrupts from the triage step"""
+    """
+    Handle a human-in-the-loop interrupt for a triage "notify" decision and route the workflow based on the Agent Inbox response.
+    
+    Sends a summary of the email to the Agent Inbox as a HumanInterrupt and waits for a single response. If the agent responds with a "response" action, the agent's feedback is appended to the messages, the triage preferences memory is updated to reflect the user's decision to respond, and the workflow is routed to the response agent. If the agent responds with "ignore", the triage preferences memory is updated to reflect the ignore decision and the workflow ends. Any other response type raises a ValueError.
+    
+    Parameters:
+        state (State): Current workflow state; expects keys "email_input" and "classification_decision".
+        store (BaseStore): Persistent store used to read/update triage preferences.
+    
+    Returns:
+        Command: A Command whose `goto` is either "response_agent" or "__end__" and whose `update` contains the composed `messages`.
+    """
     
     # Parse the email input
     author, to, subject, email_thread = parse_email(state["email_input"])
@@ -416,13 +465,25 @@ def triage_interrupt_handler(
     state: State,
     store: BaseStore,
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Synchronously execute the triage interrupt handler task."""
+    """
+    Run the triage interrupt handler task and return its routing Command.
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: Command indicating the next step — `"response_agent"` to continue processing or `"__end__"` to finish.
+    """
 
     return triage_interrupt_handler_task(state, store=store).result()
 
 @task
 def llm_call_task(state: State, store: BaseStore):
-    """LLM decides whether to call a tool or not"""
+    """
+    Determines whether the LLM should invoke a tool and returns the chosen assistant message.
+    
+    Builds a system prompt incorporating stored calendar and response preferences, calls the tool-enabled LLM to obtain an assistant message (which may include one or more tool calls), retries once with a stricter instruction if no tool call is returned, and falls back to a synthetic "Done" tool call to avoid stalling. Logs LLM interactions and preserves any tool call payload returned by the model.
+    
+    Returns:
+        dict: A mapping with key "messages" whose value is a single-element list containing the assistant message. The message may contain a `tool_calls` field with tool invocation specifications; if the LLM produced no tool calls, the returned message will include a fallback `{"name": "Done", "args": {"done": True}}` tool call.
+    """
     
     # Search for existing cal_preferences memory
     cal_preferences = get_memory(store, ("email_assistant", "cal_preferences"), default_cal_preferences)
@@ -483,7 +544,18 @@ def llm_call(state: State, store: BaseStore):
 
 @task
 def interrupt_handler_task(state: State, store: BaseStore) -> Command[Literal["llm_call", "__end__"]]:
-    """Creates an interrupt for human review of tool calls"""
+    """
+    Request human review for tool calls found in the most recent assistant message and apply the resulting actions.
+    
+    Sends human interrupt requests for HITL tools ("write_email", "schedule_meeting", "Question"), executes non-HITL tools directly, and incorporates human responses:
+    - "accept": executes the original tool call and appends the tool output.
+    - "edit": replaces the tool call in the assistant message with the edited version, executes the edited call when applicable, and updates related memories (response or calendar preferences).
+    - "ignore": skips execution, appends a note, updates triage preferences, and may end the workflow.
+    - "response": records user feedback as a tool message and updates related memories when applicable.
+    
+    @returns:
+        Command with `goto` set to either "llm_call" or "__end__" and `update` containing a `messages` list that reflects executed tool outputs, edited messages, ignore notes, and feedback entries.
+    """
     
     # Store messages
     result = []
@@ -709,7 +781,16 @@ def should_continue(
     state: State,
     runtime: Runtime[AssistantContext],
 ) -> Literal["interrupt_handler", "__end__"]:
-    """Route to tool handler, or end if Done tool called"""
+    """
+    Decide the next workflow step after the LLM's tool call and finalize parent outputs when finished.
+    
+    Parameters:
+        state (State): Current workflow state containing the message list and email input.
+        runtime (Runtime[AssistantContext]): Runtime context used to extract thread and metadata for parent run priming.
+    
+    Returns:
+        str: "interrupt_handler" if there are tool calls that require human-in-the-loop handling, "__end__" if the workflow should terminate (in which case the final output is formatted and the parent run is primed).
+    """
     _, _, thread_id, metadata = extract_runtime_metadata(runtime)
     messages = state["messages"]
     last_message = messages[-1]

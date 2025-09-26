@@ -39,7 +39,16 @@ tools_by_name = get_tools_by_name(tools)
 
 
 def _invoke_tool_with_logging(tool_name: str, args: dict) -> str:
-    """Invoke a tool, log the outcome, and surface readable error descriptions."""
+    """
+    Invoke a named tool with the provided arguments, record the run, and return the tool's observation or a readable error message.
+    
+    Parameters:
+        tool_name (str): The registered tool's name to invoke.
+        args (dict): Arguments to pass to the tool.
+    
+    Returns:
+        str: The tool's observation text on success, or a human-readable error description if the tool raised an exception.
+    """
 
     tool = tools_by_name[tool_name]
     metadata_update = None
@@ -88,12 +97,17 @@ def triage_router_task(
     state: State,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
-    """Analyze email content to decide if we should respond, notify, or ignore.
-
-    The triage step prevents the assistant from wasting time on:
-    - Marketing emails and spam
-    - Company-wide announcements
-    - Messages meant for other teams
+    """
+    Decide whether an incoming email should be responded to, ignored, or escalated for human notification.
+    
+    Parses the email from `state["email_input"]`, runs the router model to classify the triage outcome, and updates workflow state and parent run metadata accordingly. Side effects: calls `prime_parent_run` with the email content and metadata; when classification is "ignore" it also primes a final summary output.
+    
+    Parameters:
+        state (State): Current workflow state containing "email_input".
+        runtime (Runtime[AssistantContext]): Runtime providing thread and metadata used when priming parent runs.
+    
+    Returns:
+        Command: A command directing the next node; `goto` is one of "triage_interrupt_handler", "response_agent", or "__end__". The `update` contains `classification_decision` and, when the decision is to respond, a `messages` entry with a user prompt to respond to the email.
     """
 
     _timezone, _eval_mode, thread_id, metadata = extract_runtime_metadata(runtime)
@@ -193,7 +207,12 @@ def triage_router(
     state: State,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
-    """Synchronously execute the triage router task."""
+    """
+    Execute the triage router and return the next workflow command.
+    
+    Returns:
+        Command: A command directing the workflow to "triage_interrupt_handler", "response_agent", or "__end__".
+    """
 
     return triage_router_task(state, runtime=runtime).result()
 
@@ -202,7 +221,20 @@ def triage_interrupt_handler_task(
     state: State,
     _runtime: Runtime[AssistantContext],
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Handles interrupts from the triage step"""
+    """
+    Create a human interrupt to notify and collect a decision about a triaged email, then route the workflow based on the human response.
+    
+    This function reads `state["email_input"]` and `state["classification_decision"]`, formats an Agent Inbox notification, and sends a HumanInterrupt request. If the interrupt response type is `"response"`, the user's feedback is appended to the returned messages and the command routes to the response agent. If the response type is `"ignore"`, the command routes to the workflow end. The function updates state with a `messages` list suitable for the response agent.
+    
+    Parameters:
+        state (State): Workflow state; must contain `email_input` (raw email text) and `classification_decision` (triage label).
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: A command with `goto` set to either `"response_agent"` or `"__end__"`, and `update` containing the `messages` list.
+    
+    Raises:
+        ValueError: If the interrupt response has an unexpected `type`.
+    """
     
     # Parse the email input
     author, to, subject, email_thread = parse_email(state["email_input"])
@@ -264,13 +296,25 @@ def triage_interrupt_handler(
     state: State,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Synchronously execute the triage interrupt handler task."""
+    """
+    Handle a triage human-interrupt and determine the next workflow node.
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: Command directing the workflow to either "response_agent" or "__end__".
+    """
 
     return triage_interrupt_handler_task(state, runtime).result()
 
 @task
 def llm_call_task(state: State):
-    """LLM decides whether to call a tool or not"""
+    """
+    Invoke the LLM with the HITL system prompt and the current conversation messages.
+    
+    Builds a prompt by prepending the HITL system prompt (including tool, background, and preference text) to state["messages"], calls the LLM with tool bindings, logs the LLM response payload, and returns the updated messages list.
+    
+    Returns:
+        dict: A mapping with key "messages" whose value is a list containing the LLM response message object.
+    """
 
     prompt = [
         {
@@ -302,7 +346,21 @@ def llm_call(state: State):
 
 @task
 def interrupt_handler_task(state: State) -> Command[Literal["llm_call", "__end__"]]:
-    """Creates an interrupt for human review of tool calls"""
+    """
+    Handle human-in-the-loop processing for each tool call found in the most recent assistant message.
+    
+    This creates human interrupts for tool calls that require review (write_email, schedule_meeting, Question), sends them to the Agent Inbox, and translates the chosen human action into messages that update the agent state. Non-HITL tools are executed immediately and their observations are appended. For HITL tools, accepted or edited actions may trigger tool execution and appended tool responses; ignored or response actions produce messages describing the intended instruction for the agent. The function produces an update containing the resulting messages and determines whether the workflow should continue to the "llm_call" node or end.
+    
+    Parameters:
+        state (State): Current workflow state. Expected to include:
+            - "messages": a list where the last message may contain `tool_calls` (each with `name`, `args`, and `id`).
+            - "email_input": the original email text used to build human interrupt context.
+    
+    Returns:
+        Command[Literal["llm_call", "__end__"]]: A command with:
+            - goto: either "llm_call" to continue or "__end__" to finish.
+            - update: a dict with a "messages" key containing appended items representing tool results, edited AI messages, or user-feedback artifacts.
+    """
     
     # Store messages
     result = []

@@ -10,7 +10,12 @@ from langgraph.runtime import Runtime, get_runtime
 
 
 def _stream_writer() -> Any:
-    """Return the active stream writer when available."""
+    """
+    Retrieve the active stream writer if one is available.
+    
+    Returns:
+        The stream writer callable if present, `None` otherwise.
+    """
 
     try:
         runtime: Runtime[Any] | None = get_runtime()  # type: ignore[type-arg]
@@ -29,15 +34,16 @@ def stream_progress(
     steps: int = 3,
     delay_seconds: float = 0.0,
 ) -> str:
-    """Emit progress updates over the custom stream channel.
-
-    Args:
-        phase: Human readable phase/label for the progress update.
-        steps: Number of progress updates to emit (minimum of 1).
-        delay_seconds: Optional pause between events (defaults to 0 for fast tests).
-
+    """
+    Emit a sequence of progress events for the given phase over the active stream writer, if available.
+    
+    Parameters:
+        phase (str): Human-readable label for the progress updates.
+        steps (int): Number of progress updates to emit; values less than 1 are treated as 1.
+        delay_seconds (float): Seconds to wait between events; 0 emits events without delay.
+    
     Returns:
-        Summary string describing how many events were emitted.
+        str: Summary stating whether events were emitted through the stream writer and how many, or that events were recorded locally when no writer was available.
     """
 
     step_count = max(1, int(steps))

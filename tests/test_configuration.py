@@ -27,6 +27,19 @@ def test_get_llm_calls_init_chat_model_with_provider(monkeypatch: pytest.MonkeyP
     calls: dict[str, object] = {}
 
     def _fake_init(model: str, **kwargs):
+        """
+        Test helper that records initialization arguments and returns a dummy chat model instance.
+        
+        Parameters:
+            model (str): Model identifier passed to the initializer.
+            **kwargs: Additional initialization keyword arguments; all are recorded.
+        
+        Detailed behavior:
+            Stores the provided `model` and all `kwargs` into the surrounding `calls` dict as side effects.
+        
+        Returns:
+            _DummyModel: A minimal stand-in instance representing a chat model.
+        """
         calls["model"] = model
         calls.update(kwargs)
 

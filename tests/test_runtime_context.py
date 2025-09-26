@@ -16,6 +16,14 @@ def test_triage_router_uses_runtime_context(monkeypatch):
     captured: dict[str, object] = {}
 
     def fake_prime_parent_run(**kwargs):  # type: ignore[no-untyped-def]
+        """
+        Capture `metadata_update` and `thread_id` from keyword arguments into the outer `captured` dict for testing.
+        
+        Parameters:
+            **kwargs: Keyword arguments expected to include:
+                metadata_update (dict): Runtime metadata to capture and store under `captured["metadata"]`.
+                thread_id (str | None): Thread identifier to capture and store under `captured["thread_id"]`.
+        """
         captured["metadata"] = kwargs.get("metadata_update")
         captured["thread_id"] = kwargs.get("thread_id")
 

@@ -18,12 +18,27 @@ class ModelSpec:
 
     @property
     def identifier(self) -> str:
-        """Return a provider-prefixed identifier (provider:model)."""
+        """
+        Produce the model identifier prefixed by the provider when present.
+        
+        If the ModelSpec has a non-empty provider, the identifier is "provider:model"; otherwise it is just "model".
+        
+        Returns:
+            identifier (str): The provider-prefixed identifier or the model name when no provider is set.
+        """
 
         return f"{self.provider}:{self.model}" if self.provider else self.model
 
 
 def _default_model() -> str:
+    """
+    Selects the default model name for the assistant.
+    
+    Checks the environment variables `EMAIL_ASSISTANT_MODEL` then `GEMINI_MODEL` and returns the first non-empty value; if neither is set returns the module default `_DEFAULT_MODEL`.
+    
+    Returns:
+        str: The resolved model identifier.
+    """
     return (
         os.environ.get("EMAIL_ASSISTANT_MODEL")
         or os.environ.get("GEMINI_MODEL")
@@ -32,6 +47,14 @@ def _default_model() -> str:
 
 
 def _default_provider() -> str:
+    """
+    Selects the default model provider for the email assistant.
+    
+    Reads the `EMAIL_ASSISTANT_MODEL_PROVIDER` environment variable and returns its value if set; otherwise returns the module default `_DEFAULT_PROVIDER`.
+    
+    Returns:
+        provider (str): The resolved model provider name.
+    """
     return os.environ.get("EMAIL_ASSISTANT_MODEL_PROVIDER", _DEFAULT_PROVIDER)
 
 
@@ -42,11 +65,26 @@ def normalize_model_spec(
     default_model: str | None = None,
     default_provider: str | None = None,
 ) -> ModelSpec:
-    """Return a normalised provider/model pair for Gemini chat models.
-
-    Accepts model strings with optional provider prefixes (``provider:model``)
-    or Vertex-style ``models/<id>`` paths and ensures the provider defaults to
-    Google GenAI unless explicitly overridden.
+    """
+    Normalize and resolve a provider and model name for Gemini chat models.
+    
+    Constructs a ModelSpec by resolving an explicit `model` and optional `model_provider`
+    against provided defaults and environment defaults. Accepts `provider:model`
+    prefixes and Vertex-style `models/<id>` paths; when a provider is omitted the
+    default provider is used.
+    
+    Parameters:
+        model (str | None): Optional model identifier; may include a provider prefix
+            like `provider:model` or a path like `models/<id>`.
+        model_provider (str | None): Optional explicit provider override.
+        default_model (str | None): Optional fallback model to use when `model` is
+            empty or resolves to an empty fragment.
+        default_provider (str | None): Optional fallback provider to use when no
+            provider is specified.
+    
+    Returns:
+        ModelSpec: A ModelSpec with `provider` set to the resolved provider and
+            `model` set to the resolved model identifier.
     """
 
     effective_model = (model or "").strip() or default_model or _default_model()
@@ -78,27 +116,49 @@ def normalize_model_spec(
 
 
 def format_model_identifier(model: str | None = None, *, provider: str | None = None) -> str:
-    """Return a provider-prefixed identifier string for logging."""
+    """
+    Produce a provider-prefixed model identifier suitable for logging.
+    
+    Returns:
+        identifier (str): The identifier in the form "provider:model" when a provider is present, or "model" when no provider is set.
+    """
 
     spec = normalize_model_spec(model, model_provider=provider)
     return spec.identifier
 
 
 def model_spec(model: str | None = None, *, provider: str | None = None) -> ModelSpec:
-    """Convenience helper that exposes the normalised ``ModelSpec``."""
+    """
+    Return a normalized ModelSpec for the given model and optional provider.
+    
+    Parameters:
+        model (str | None): Optional model identifier. May include a provider prefix (e.g., "provider:model") or a "models/..." path; if None, environment or built-in defaults are used.
+        provider (str | None): Optional explicit provider override.
+    
+    Returns:
+        ModelSpec: A ModelSpec with the resolved `provider` and `model` values.
+    """
 
     return normalize_model_spec(model, model_provider=provider)
 
 
 def get_llm(temperature: float = 0.0, **kwargs):
-    """Return a configured Gemini chat model instance.
-
-    Args:
-        temperature: The temperature to use for the LLM.
-        **kwargs: Additional parameters passed through to ``init_chat_model``.
-
+    """
+    Create a LangChain BaseChatModel configured for a Gemini chat model.
+    
+    This function resolves the effective provider and model (accepting overrides via the
+    `model` and `model_provider` kwargs), ensures `convert_system_message_to_human` is set
+    to False by default, and returns an initialized chat model instance.
+    
+    Parameters:
+        temperature (float): Sampling temperature for the model.
+        **kwargs: Additional keyword arguments forwarded to LangChain's `init_chat_model`.
+            Recognized overrides include:
+              - model: explicit model string (may include provider prefix or "models/..." paths)
+              - model_provider: explicit provider name
+    
     Returns:
-        A configured ``BaseChatModel`` instance from LangChain's factory.
+        BaseChatModel: A configured LangChain chat model instance.
     """
 
     # Allow explicit model override via kwargs, fallback to env var (2.5 series by default)

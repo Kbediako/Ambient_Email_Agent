@@ -37,7 +37,18 @@ logger = logging.getLogger(__name__)
 
 
 def _load_dataset(agent_module: str):
-    """Load the appropriate dataset based on agent module name."""
+    """
+    Selects and loads the email dataset corresponding to the given agent module name.
+    
+    Parameters:
+        agent_module (str): Agent module identifier used to choose the dataset (if the string "gmail" appears, the Gmail-specific dataset is selected).
+    
+    Returns:
+        tuple: A 3-tuple (email_inputs, email_names, triage_outputs_list) where
+            - email_inputs: list of email input objects,
+            - email_names: list of names/identifiers for each input,
+            - triage_outputs_list: list of triage actions for each input; if the dataset does not provide this, a list of "respond" entries is returned with one entry per input.
+    """
     if "gmail" in agent_module:
         ds_mod = importlib.import_module("email_assistant.eval.email_gmail_dataset")
     else:
@@ -50,7 +61,15 @@ def _load_dataset(agent_module: str):
 
 
 def _compile_agent(agent_module: str):
-    """Compile the selected agent with memory + checkpointer when applicable."""
+    """
+    Compile the agent module's workflow into an executable graph, attaching a memory saver and an optional in-memory store.
+    
+    Parameters:
+        agent_module (str): Name of the agent module under the `email_assistant` package to compile.
+    
+    Returns:
+        tuple: A pair `(graph, store)` where `graph` is the compiled workflow graph and `store` is an `InMemoryStore` instance when supported by the agent or `None` if the agent does not accept a store.
+    """
     module = importlib.import_module(f"email_assistant.{agent_module}")
     checkpointer = MemorySaver()
     store = InMemoryStore()
@@ -88,6 +107,11 @@ def _extract_tool_calls(messages: List[Any]) -> List[str]:
 
 
 def main():
+    """
+    Run the email assistant agent on a dataset of test inputs and print the agent's outputs, tool usages, and diagnostic summaries.
+    
+    This script initializes the project, optionally sets HITL auto-accept and normalizes the GEMINI_MODEL environment variable, loads and compiles the specified agent module, and then iterates dataset examples. It supports CLI flags to choose the agent module (--agent-module), limit the number of examples (--max), restrict to triage=="respond" (--respond-only), enable auto-accept for HITL (--auto-accept), and stream agent progress (--stream). For each example it prints a header and an email summary, invokes or streams the agent with per-run thread config, captures final state, prints detected tool calls and tool message outputs, and best-effort surfaces drafted email content when available. The function prints errors and warnings but does not raise them to the caller.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--agent-module", default="email_assistant_hitl_memory", help="Agent module under email_assistant.*")
     ap.add_argument("--max", type=int, default=5, help="Max examples to run")
@@ -149,6 +173,17 @@ def main():
             thread_config=thread_config,
             agent=agent,
         ):
+            """
+            Invoke the agent with the provided payload and thread configuration.
+            
+            Parameters:
+                payload: The input payload to pass to the agent (typically a dict with the email and metadata).
+                thread_config: Per-invocation configuration (e.g., run/thread ids, timezone, eval_mode).
+                agent: Agent instance exposing an `invoke(payload, config=...)` method.
+            
+            Returns:
+                The agent's invocation result (final response/state returned by `agent.invoke`).
+            """
             return agent.invoke(
                 payload,
                 config=thread_config,
@@ -159,6 +194,19 @@ def main():
             thread_config=thread_config,
             agent=agent,
         ):
+            """
+            Stream an agent's output in real time and print concise previews of each chunk.
+            
+            Streams updates, messages, and custom chunks from the agent; prints custom chunks verbatim and prints a truncated preview (240 characters) for other modes. Designed to be used when real-time progress is desired.
+            
+            Parameters:
+                payload: The input payload passed to the agent stream.
+                thread_config: Configuration dict used for the agent run (e.g., thread and run identifiers, timezone, eval flags).
+                agent: The agent instance providing a `stream(...)` method and `get_state(...)`.
+            
+            Returns:
+                The agent's final state object retrieved via `agent.get_state(thread_config)`.
+            """
             print("Streaming agent output (updates/messages)...")
             for mode, chunk in agent.stream(
                 payload,

@@ -219,20 +219,24 @@ def extract_message_content(message) -> str:
     return str(content)
 
 def format_few_shot_examples(examples):
-    """Format examples into a readable string representation.
-
-    Args:
-        examples (List[Item]): List of example items from the vector store, where each item
-            contains a value string with the format:
-            'Email: {...} Original routing: {...} Correct routing: {...}'
-
+    """
+    Format a list of vector-store example items into a single readable string.
+    
+    Each example item is expected to have a `value` string containing three sections separated by the markers
+    "Original routing:" and "Correct routing:". The resulting string contains one block per example:
+    
+    Example:
+    Email: {email_part}
+    Original Classification: {original_routing}
+    Correct Classification: {correct_routing}
+    ---
+    
+    Parameters:
+        examples (List[Item]): Iterable of example items where `item.value` is a string containing
+            the email text followed by "Original routing:" and "Correct routing:" sections.
+    
     Returns:
-        str: A formatted string containing all examples, with each example formatted as:
-            Example:
-            Email: {email_details}
-            Original Classification: {original_routing}
-            Correct Classification: {correct_routing}
-            ---
+        str: Joined formatted examples separated by newlines, one block per example as shown above.
     """
     formatted = []
     for example in examples:
@@ -252,7 +256,17 @@ Correct Classification: {correct_routing}
     return "\n".join(formatted)
 
 def extract_tool_calls(messages: List[Any]) -> List[str]:
-    """Extract tool call names from messages, safely handling messages without tool_calls."""
+    """
+    Extract unique tool call names from a sequence of messages.
+    
+    Parses each message for a `tool_calls` collection (supports both dict and object message representations) and returns the list of tool call names normalized to lowercase in the order they are first encountered. Duplicate calls are suppressed by comparing either `(name, id)` when an id is present or `(name, serialized_args)` when no id is available; arguments are JSON-serialized for comparison with a fallback to `repr` when serialization fails.
+    
+    Parameters:
+        messages (List[Any]): Iterable of message objects or dicts that may contain a `tool_calls` field.
+    
+    Returns:
+        List[str]: Ordered list of unique tool call names in lowercase.
+    """
 
     tool_call_names: List[str] = []
     seen_keys: set[tuple] = set()
@@ -301,13 +315,20 @@ def extract_tool_calls(messages: List[Any]) -> List[str]:
     return tool_call_names
 
 def format_messages_string(messages: List[Any]) -> str:
-    """Format a conversation to a readable string, normalizing tool names.
-
-    - Maps Gmail tool names to canonical dataset names for evaluation:
-      send_email_tool -> write_email, check_calendar_tool -> check_calendar_availability,
-      schedule_meeting_tool -> schedule_meeting. Done/Question unchanged.
-    - Includes tool arguments succinctly and tool results content.
-    - Falls back gracefully for unknown message shapes.
+    """
+    Format a sequence of message-like objects into a normalized, human-readable conversation string.
+    
+    Parses each item in `messages` to produce lines representing user, assistant, tool calls, and tool results. Tool call names are normalized (e.g., "send_email_tool" -> "write_email", "check_calendar_tool" -> "check_calendar_availability", "schedule_meeting_tool" -> "schedule_meeting"); write_email-style calls have their arguments reduced to a concise `to`, `subject`, and `content` view when possible. The function extracts brief context (Subject/From) from earlier markdown-formatted messages to populate missing email fields, truncates very long tool results for readability, and falls back gracefully for unknown or malformed message shapes.
+    
+    Parameters:
+        messages (List[Any]): Iterable of message-like objects or dicts. Supported shapes include dicts with keys like `role`, `content`, `tool_calls`, and tool result dicts with `tool_call_id`; or objects with attributes `type`/`role`, `content`, and `tool_calls`.
+    
+    Returns:
+        str: A newline-joined string where each line is one of:
+            - "user: {text}" for user messages
+            - "assistant: {text}" for assistant messages
+            - "assistant: tool_call -> {name} {args_json}" for tool calls
+            - "tool[{tool_call_id}]: {result}" for tool results
     """
 
     def normalize_tool_name(name: str) -> str:

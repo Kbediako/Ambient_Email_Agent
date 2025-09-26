@@ -220,7 +220,16 @@ def maybe_invoke_llm_judge(
 
 
 def run_initial_stream(email_assistant: Any, email_input: Dict, thread_config: Dict) -> List[Dict]:
-    """Run the initial stream and return collected messages."""
+    """
+    Collect initial non-custom stream chunks produced by the assistant for a single email input.
+    
+    Parameters:
+        email_input (dict): The input email payload passed to the assistant's stream.
+        thread_config (dict): Configuration used for the streaming call (thread-level settings).
+    
+    Returns:
+        List[dict]: Collected stream chunk dictionaries from modes other than `"custom"`.
+    """
     messages = []
     for mode, chunk in email_assistant.stream(
         {"email_input": email_input},
@@ -235,7 +244,18 @@ def run_initial_stream(email_assistant: Any, email_input: Dict, thread_config: D
 
 
 def run_stream_with_command(email_assistant: Any, command: Command, thread_config: Dict) -> List[Dict]:
-    """Run stream with a command and return collected messages."""
+    """
+    Stream the assistant with a command and collect non-custom message chunks.
+    
+    Iterates the assistant's stream using the provided command and thread configuration, skipping chunks emitted with mode "custom".
+    
+    Parameters:
+        command (Command): The command to send to the assistant.
+        thread_config (Dict): Configuration for the streaming thread passed to the assistant.
+    
+    Returns:
+        List[Dict]: Collected message chunks from the stream in order, excluding "custom" chunks.
+    """
     messages = []
     for mode, chunk in email_assistant.stream(
         command,
@@ -319,6 +339,12 @@ def test_email_dataset_tool_calls(email_input, email_name, criteria, expected_ca
         summary = summarize_email_for_grid(email_input)
 
         def _invoke_agent():
+            """
+            Invoke the email assistant with the prepared payload and thread configuration.
+            
+            Returns:
+                The assistant's invocation result object.
+            """
             return email_assistant.invoke(
                 payload,
                 config=thread_config,

@@ -117,6 +117,16 @@ def _maybe_interrupt(requests):
 
 # Safe tool invocation helper
 def _safe_tool_invoke(name: str, args):
+    """
+    Safely invoke a named tool and return its result or an error message.
+    
+    Parameters:
+        name (str): The tool's registered name.
+        args: Arguments passed through to the tool's `invoke` method; tool-specific.
+    
+    Returns:
+        str | Any: The tool's return value on success, or an error message string describing the failure on error.
+    """
     try:
         tool = tools_by_name.get(name)
         if tool is None:
@@ -224,7 +234,18 @@ def _resolve_thread_id(
     state: State,
     runtime: Runtime[AssistantContext] | None = None,
 ) -> str | None:
-    """Best-effort extraction of thread identifiers from runtime context/state."""
+    """
+    Extract the first available thread identifier from the runtime or state.
+    
+    Checks the runtime for a thread id first; if absent, searches the provided state for a 'thread_id' key and, if present, its 'config' mapping for a 'thread_id'. Accepts either mapping-like states or objects with a 'config' attribute.
+    
+    Parameters:
+        state: A mapping or object that may contain a 'thread_id' or a 'config' mapping with a 'thread_id'.
+        runtime: Optional runtime from which a thread id may be extracted.
+    
+    Returns:
+        str: The first found thread id as a string, or `None` if no thread id is present.
+    """
 
     thread_id = runtime_thread_id(runtime)
     if thread_id:
@@ -290,7 +311,17 @@ def triage_router_task(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
-    """Analyze email content; create/cancel reminders and route next step."""
+    """
+    Analyze an incoming Gmail message, update reminders, and decide the next agent step.
+    
+    Parses the email from state, primes a parent trace run with runtime-derived metadata, and uses the router model plus user triage preferences to classify the email. Based on the classification and whether a reply from the user was detected, this function may cancel existing reminders or create a new reminder, and selects the next workflow target and update payload.
+    
+    Parameters:
+        runtime (Runtime[AssistantContext]): Runtime containing thread, timezone, and eval-mode metadata used for tracing and decision-making.
+    
+    Returns:
+        Command: A Command whose `goto` is one of "triage_interrupt_handler", "response_agent", or "__end__", and whose `update` contains at minimum `classification_decision` and, when applicable, a `messages` list instructing the response agent.
+    """
 
     email_input = state["email_input"]
     author, to, subject, email_thread, email_id = parse_gmail(email_input)
@@ -423,7 +454,12 @@ def triage_router(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
-    """Synchronously execute the triage router task."""
+    """
+    Run the triage router synchronously to decide the next workflow step.
+    
+    Returns:
+        Command: A Command whose `goto` is one of "triage_interrupt_handler", "response_agent", or "__end__" indicating the next node to execute.
+    """
 
     return triage_router_task(state, store=store, runtime=runtime).result()
 
@@ -433,7 +469,25 @@ def triage_interrupt_handler_task(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Handles interrupts from the triage step"""
+    """
+    Handle a human-in-the-loop interrupt generated during triage for a single email.
+    
+    Builds a HumanInterrupt request describing the email and presents it to the human reviewer, then processes the chosen action:
+    - If the reviewer responds, records the reply intent in `messages`, updates triage preferences in `store`, and routes to the response agent.
+    - If the reviewer ignores the notification, updates triage preferences and ends the workflow.
+    - If the reviewer accepts (acknowledges) the notification, ends the workflow.
+    
+    Parameters:
+        state (State): Current workflow state containing email_input and classification_decision.
+        store (BaseStore): Persisted store used to update triage preferences.
+        runtime (Runtime[AssistantContext]): Runtime context used to derive thread/timezone/eval-mode metadata.
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: Command with `goto` set to the next node ("response_agent" or "__end__") and `update` containing the accumulated `messages` for downstream processing.
+    
+    Raises:
+        ValueError: If the human interrupt response type is unrecognized.
+    """
     author, to, subject, email_thread, email_id = parse_gmail(state["email_input"])
     email_markdown = format_gmail_markdown(subject, author, to, email_thread, email_id)
     messages = [{"role": "user", "content": f"Email to notify user about: {email_markdown}"}]
@@ -499,13 +553,26 @@ def triage_interrupt_handler(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Synchronously execute the triage interrupt handler task."""
+    """
+    Run the triage interrupt handler and return its command result.
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: Command directing the next step —
+        `"response_agent"` to continue processing or `"__end__"` to terminate.
+    """
 
     return triage_interrupt_handler_task(state, store=store, runtime=runtime).result()
 
 @task
 def llm_call_task(state: State, store: BaseStore):
-    """LLM decides whether to call a tool or not with Gmail-specific nudges."""
+    """
+    Produce an assistant message that specifies an ordered plan of tool calls (or a synthesized reply) for handling a Gmail message.
+    
+    This function inspects the current State and stored preferences to decide whether the assistant should call tools (e.g., check_calendar_tool, schedule_meeting_tool, send_email_tool, Question, Done) and in what sequence. It applies Gmail-specific heuristics for scheduling requests, spam-like content, conference invites, reminders, document reviews, and other common patterns; enforces intent-specific constraints (for example, ensuring a calendar check before scheduling and adding a terminating Done call); and may synthesize deterministic tool plans when running in evaluation/offline modes or as a final fallback.
+    
+    Returns:
+        dict: A payload with a "messages" key whose value is a list containing one assistant message. That message will include a `tool_calls` sequence describing the planned tool invocations (ordered dictionaries with `name`, `args`, and `id`).
+    """
     # Offline-friendly evaluation mode: optionally produce deterministic tool plans
     # without relying on live LLM calls. Enabled when EMAIL_ASSISTANT_EVAL_MODE is truthy.
     eval_mode = _eval_mode_enabled()
@@ -1204,7 +1271,12 @@ def llm_call_task(state: State, store: BaseStore):
 
 
 def llm_call(state: State, store: BaseStore):
-    """Synchronously execute the llm_call task."""
+    """
+    Run the llm_call task synchronously.
+    
+    Returns:
+        Message: The assistant message produced by the task; typically contains planned `tool_calls` or a single user-visible message.
+    """
 
     return llm_call_task(state).result()
 
@@ -1214,7 +1286,12 @@ def interrupt_handler_task(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["llm_call", "__end__"]]:
-    """Creates an interrupt for human review of tool calls"""
+    """
+    Create human-review interrupts for assistant tool calls, apply user decisions (accept, edit, ignore, respond), invoke or simulate tools as needed, and record resulting tool observations and memory updates.
+    
+    Returns:
+        Command: A Command whose `goto` is either `'llm_call'` or `'__end__'` and whose `update` contains a `messages` list with tool observations, edited assistant messages, and user-feedback entries.
+    """
     ai_message = state["messages"][-1]
     result: list[Any] = []
     goto = "llm_call"
@@ -1474,7 +1551,25 @@ def should_continue(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Literal["interrupt_handler", "mark_as_read_node", "llm_call"]:
-    """Route to tool handler, or end if Done tool called"""
+    """
+    Decide the next agent node based on the last assistant message's tool calls and email context.
+    
+    Examines the most recent message in state for tool calls and returns the next routing decision:
+    - If the last message has no tool calls, route to "mark_as_read_node".
+    - If the last message has tool calls but does not include a "Done" call, route to "interrupt_handler".
+    - If the last message includes a "Done" call:
+      - If the email appears to be a no-reply source (e.g., "no-reply" in the author or explicit "do not reply" cues in the thread), route to "mark_as_read_node".
+      - Otherwise, if a "send_email_tool" call already appears anywhere in the message history, route to "mark_as_read_node".
+      - Otherwise, route to "llm_call".
+    
+    Parameters:
+        state (State): Current workflow state containing messages and email_input.
+        store (BaseStore): Persistent store used by the agent (not inspected for decision details).
+        runtime (Runtime[AssistantContext]): Runtime context used to derive thread/timezone metadata.
+    
+    Returns:
+        Literal["interrupt_handler", "mark_as_read_node", "llm_call"]: The chosen next node name.
+    """
     email_input = state.get("email_input", {})
     try:
         author, to, subject, email_thread, email_id = parse_gmail(email_input)
@@ -1541,7 +1636,12 @@ def interrupt_handler(
     store: BaseStore,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["llm_call", "__end__"]]:
-    """Synchronously execute the interrupt handler task."""
+    """
+    Run the interrupt handler task and return its resulting command.
+    
+    Returns:
+        Command[Literal["llm_call", "__end__"]]: A command directing the workflow to either continue with "llm_call" or finish with "__end__".
+    """
 
     return interrupt_handler_task(state, store=store, runtime=runtime).result()
 
@@ -1550,10 +1650,23 @@ def mark_as_read_node_task(
     state: State,
     runtime: Runtime[AssistantContext],
 ):
-    """Finalize Gmail flow by marking the thread as read and append a summary message.
-
-    Appends a final assistant text message summarizing the reply content so
-    top-level runs display meaningful output in dashboards.
+    """
+    Finalize the Gmail workflow by marking the email thread as read, assembling a final assistant summary, and returning a payload of final outputs.
+    
+    Performs an optional mark-as-read action (controlled by EMAIL_ASSISTANT_SKIP_MARK_AS_READ), builds markdown for the email, extracts a concise assistant summary if an outgoing email was sent, compiles tool trace and output text, primes the parent run with metadata, and returns only the keys that differ from the current state.
+    
+    Parameters:
+        state (State): Current workflow state containing keys like "email_input" and "messages".
+        runtime (Runtime[AssistantContext]): Runtime context used to derive timezone, eval mode, and thread_id.
+    
+    Returns:
+        dict: A result payload that may include:
+            - "assistant_reply": assistant summary of the sent reply (string) if present and different from state.
+            - "messages": list containing a final assistant message (when a summary was produced).
+            - "email_markdown": formatted markdown representation of the email thread.
+            - "tool_trace": serialized trace of tool/message history.
+            - "output_text": final assistant output text.
+        Only keys whose values differ from the corresponding entries in state are included.
     """
     skip = os.getenv("EMAIL_ASSISTANT_SKIP_MARK_AS_READ", "").lower() in ("1", "true", "yes")
     email_input = state["email_input"]
@@ -1650,7 +1763,16 @@ def mark_as_read_node(
     state: State,
     runtime: Runtime[AssistantContext],
 ):
-    """Synchronously execute the mark_as_read_node task."""
+    """
+    Finalize the Gmail flow by optionally marking the thread as read and returning the final assistant payload.
+    
+    Parameters:
+        state: Current workflow state containing inputs and execution context.
+        runtime: Runtime containing AssistantContext used to derive thread_id, timezone, and eval_mode for tracing and metadata.
+    
+    Returns:
+        dict: Result payload including `assistant_reply` (str), `email_markdown` (str), and optional `tool_trace` (dict) when available.
+    """
 
     return mark_as_read_node_task(state, runtime=runtime).result()
 

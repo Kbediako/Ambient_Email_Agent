@@ -110,6 +110,17 @@ def main(mock_schedule, mock_check, mock_send):
                 payload=payload,
                 config=config,
             ):
+                """
+                Invoke the compiled agent with the provided payload and configuration using durability set to "sync".
+                
+                Parameters:
+                    agent: The compiled agent instance to invoke.
+                    payload: The input payload passed to the agent for this invocation.
+                    config: Runtime configuration for the invocation (e.g., run_id, configurable settings, recursion_limit).
+                
+                Returns:
+                    The agent's invocation result object.
+                """
                 return agent.invoke(
                     payload,
                     config,

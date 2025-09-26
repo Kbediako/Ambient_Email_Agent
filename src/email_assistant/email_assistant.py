@@ -77,7 +77,15 @@ llm_with_tools = llm.bind_tools(tools, tool_choice="any")
 
 # Nodes
 def _fallback_tool_plan(email_input: dict):
-    """Deterministic tool plan if model doesn't emit tool calls."""
+    """
+    Produce a deterministic sequence of tool calls based on the email subject using simple heuristics.
+    
+    Parameters:
+        email_input (dict): Email data (expected keys include 'author', 'to', 'subject', 'thread') used to determine an appropriate sequence of tool actions.
+    
+    Returns:
+        AIMessage: An AIMessage with empty content and a `tool_calls` list describing planned tool invocations (each item contains `name`, `args`, and `id`).
+    """
     from langchain_core.messages import AIMessage
     author, to, subject, thread = parse_email(email_input or {})
     s = (subject or "").lower()
@@ -259,7 +267,21 @@ def llm_call(state: State):
 
 @task
 def tool_node_task(state: State):
-    """Performs the tool call"""
+    """
+    Execute each tool call found in the last message of `state` and return their observations.
+    
+    Parameters:
+        state (State): Execution state whose last message must contain a `tool_calls` iterable of dicts with keys `name`, `args`, and `id`.
+    
+    Returns:
+        dict: A mapping with key `"messages"` containing a list of tool result objects. Each result dict has:
+            - `role` (str): always `"tool"`.
+            - `content` (str): the tool's observation or an error string if the tool raised an exception.
+            - `tool_call_id` (str): the originating tool call `id`.
+    
+    Notes:
+        - Exceptions raised by tools are caught; the resulting observation contains an error description and the function continues processing remaining tool calls.
+    """
 
     result = []
     for tool_call in state["messages"][-1].tool_calls:
@@ -346,12 +368,20 @@ def triage_router_task(
     state: State,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Analyze email content to decide if we should respond, notify, or ignore.
-
-    The triage step prevents the assistant from wasting time on:
-    - Marketing emails and spam
-    - Company-wide announcements
-    - Messages meant for other teams
+    """
+    Decide whether an incoming email should be responded to, notified about, or ignored.
+    
+    Analyzes the provided email input and runtime context, records a parent run for tracing, and produces a routing Command that either routes to the response agent or ends the workflow. The Command's update includes a "classification_decision" and, when applicable, a "messages" list for the response or "outputs" for finalization.
+    
+    Parameters:
+        state (State): Current agent state containing the "email_input" and any prior data.
+        runtime (Runtime[AssistantContext]): Runtime context used to extract metadata (e.g., thread_id, timezone) propagated to the parent run.
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: A Command directing the workflow to "response_agent" to produce an email response or to "__end__" to finish. The Command.update contains:
+            - "classification_decision" (str): One of "respond", "notify", or "ignore".
+            - "messages" (list, optional): When present, contains user messages to drive the response agent.
+            - "outputs" (str, optional): Finalized output text when the flow ends.
     """
     _timezone, _eval_mode, thread_id, metadata = extract_runtime_metadata(runtime)
 
@@ -465,7 +495,16 @@ def triage_router(
     state: State,
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["response_agent", "__end__"]]:
-    """Synchronously wait for the triage router task to finish."""
+    """
+    Invoke the triage router task and return its routing decision.
+    
+    Parameters:
+        state (State): The agent state containing email and workflow data.
+        runtime (Runtime[AssistantContext]): Runtime context (timezone, thread_id, metadata) for the triage run.
+    
+    Returns:
+        Command[Literal["response_agent", "__end__"]]: Command choosing the next workflow node — `"response_agent"` to proceed to the response agent or `"__end__"` to finish.
+    """
 
     return triage_router_task(state, runtime=runtime).result()
 
@@ -487,8 +526,10 @@ email_assistant = (
 )
 
 def get_agent_executor():
-    """Return the compiled email assistant executor.
-
-    Exposed for smoke tests and simple programmatic access.
+    """
+    Get the compiled email assistant executor for programmatic use and smoke tests.
+    
+    Returns:
+        executor: The compiled email assistant executor object.
     """
     return email_assistant

@@ -77,6 +77,15 @@ def _fallback_to_eval_when_key_missing(monkeypatch):
 
 @pytest.mark.slow
 def test_live_smoke_cases(agent_module_name, gmail_service):
+    """
+    Run live smoke tests for Gmail agent scenarios and validate their behavior.
+    
+    For each predefined smoke case this test compiles and invokes the specified Gmail agent, records the sequence of tool calls, captures the assistant's reply and a short excerpt of the drafted response, and verifies that the observed tool call order contains the expected sequence. The test skips if the agent module is not a Gmail agent or if required cases are missing. In non-eval mode it asserts that a drafted response exists and that required keyword coverage is present. In eval mode it either updates a snapshot file when EMAIL_ASSISTANT_UPDATE_SNAPSHOTS is set or compares the results against the existing snapshot.
+    
+    Parameters:
+        agent_module_name (str): Module name of the agent under test (must include "gmail" to run).
+        gmail_service: pytest fixture providing access to the Gmail test service (unused directly but ensures Gmail availability).
+    """
     if "gmail" not in agent_module_name:
         pytest.skip("Live smoke test is only relevant for the Gmail agent")
 
@@ -97,6 +106,17 @@ def test_live_smoke_cases(agent_module_name, gmail_service):
             payload=payload,
             thread_config=thread_config,
         ):
+            """
+            Invoke the email assistant with the given payload and thread configuration.
+            
+            Parameters:
+                email_assistant: Assistant instance exposing an `invoke(payload, config=...)` method.
+                payload: The input payload to pass to the assistant (typically a dict describing the email and context).
+                thread_config: Configuration object or dict to apply to this assistant invocation.
+            
+            Returns:
+                The result returned by the assistant's `invoke` call (typically the assistant's run/response object).
+            """
             return email_assistant.invoke(
                 payload,
                 config=thread_config,

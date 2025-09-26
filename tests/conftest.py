@@ -27,7 +27,11 @@ def configure_langsmith_projects(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def isolate_sqlite_files(tmp_path_factory, monkeypatch):
-    """Point checkpoint/store to per-test temp files to avoid lock contention."""
+    """
+    Ensure each test uses isolated SQLite files for checkpoints and store to prevent lock contention.
+    
+    Creates a temporary directory for the test and, if the corresponding environment variables are not already set, sets EMAIL_ASSISTANT_CHECKPOINT_PATH and EMAIL_ASSISTANT_STORE_PATH to per-test SQLite file paths within that directory.
+    """
 
     run_dir = tmp_path_factory.mktemp("sqlite-run")
     checkpoint_path = run_dir / "checkpoints.sqlite"
@@ -40,7 +44,11 @@ def isolate_sqlite_files(tmp_path_factory, monkeypatch):
 
 
 def pytest_addoption(parser):
-    """Add command-line options to pytest."""
+    """
+    Register the `--agent-module` pytest CLI option to select which email assistant module to test.
+    
+    The option accepts a module name string and defaults to "email_assistant_hitl_memory_gmail".
+    """
     parser.addoption(
         "--agent-module",
         action="store",

@@ -41,7 +41,15 @@ DATASET_NAME = "Reminder Scenarios Evaluation v1"
 
 @pytest.fixture(autouse=True)
 def _route_gmail_through_fixture(gmail_service, monkeypatch):
-    """Ensure mark_as_read uses the Gmail fixture rather than live credentials."""
+    """
+    Patch the gmail_tools.mark_as_read function to use the provided test Gmail service's method.
+    
+    This replaces the module-level mark_as_read with gmail_service.mark_as_read so tests route mark-as-read operations through the fixture rather than using live credentials.
+    
+    Parameters:
+        gmail_service: Test Gmail service fixture exposing a `mark_as_read` callable.
+        monkeypatch: pytest MonkeyPatch used to set the attribute on the gmail_tools module.
+    """
 
     monkeypatch.setattr(
         gmail_tools,
@@ -52,7 +60,15 @@ def _route_gmail_through_fixture(gmail_service, monkeypatch):
 
 
 def _normalize_email_input(d: dict) -> dict:
-    """Ensure keys match what the Gmail graph expects."""
+    """
+    Normalize an email-like input dict so it contains an 'id' field when only 'thread_id' is present.
+    
+    Parameters:
+        d (dict): Input mapping representing an email or thread. If `d` has no `id` but contains `thread_id`, the returned dict will include `id` set to the `thread_id` value.
+    
+    Returns:
+        dict: The original mapping or a shallow copy with `id` populated from `thread_id` when applicable.
+    """
     if isinstance(d, dict) and d.get("id") in (None, "") and d.get("thread_id"):
         d = dict(d)
         d["id"] = d["thread_id"]
@@ -93,7 +109,15 @@ examples = list(client.list_examples(dataset_name=DATASET_NAME))
 
 @pytest.mark.parametrize("example", examples)
 def test_reminder_scenarios_on_langsmith(example: Example, gmail_service):
-    """Runs the agent on an example from the LangSmith dataset."""
+    """
+    Execute the reminders agent on a LangSmith dataset example and assert the run completes.
+    
+    This test sets up in-memory persistence, compiles the agent with synchronous durability, configures a unique run/thread context (including timezone and eval mode), invokes the agent with the example's inputs, and asserts that the resulting run did not crash.
+    
+    Parameters:
+        example (Example): A LangSmith Example whose inputs contain the email under the "email_input" key.
+        gmail_service: Test Gmail service fixture used to route Gmail actions for the agent.
+    """
     os.environ["HITL_AUTO_ACCEPT"] = "1"
 
     checkpointer = MemorySaver()
@@ -118,6 +142,12 @@ def test_reminder_scenarios_on_langsmith(example: Example, gmail_service):
     summary = summarize_email_for_grid(example.inputs.get("email_input", {}))
 
     def _invoke_agent():
+        """
+        Invoke the compiled agent using the current example inputs and test configuration.
+        
+        Returns:
+            The agent invocation result object produced by agent.invoke (the run output).
+        """
         return agent.invoke(
             example.inputs,
             config,

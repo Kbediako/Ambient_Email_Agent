@@ -81,11 +81,26 @@ HUMAN_PROMPT = """Evaluate this run per the rubric and return ONLY the JSON obje
 
 
 def _default_model_name() -> str:
+    """
+    Return the configured model name for the correctness judge.
+    
+    Reads the EMAIL_ASSISTANT_JUDGE_MODEL environment variable and returns its value if set; otherwise returns "gemini-2.5-flash".
+    """
     return os.getenv("EMAIL_ASSISTANT_JUDGE_MODEL", "gemini-2.5-flash")
 
 
 @lru_cache(maxsize=4)
 def _build_base_chain(model_name: str, temperature: float) -> Runnable:
+    """
+    Builds a Runnable LangChain chain that prompts an LLM and parses its JSON output into a JudgeResult.
+    
+    Parameters:
+        model_name (str): Name of the LLM model to instantiate.
+        temperature (float): Sampling temperature for the LLM.
+    
+    Returns:
+        Runnable: A runnable pipeline combining the system and human prompts, the configured LLM, and a JSON output parser targeting `JudgeResult`.
+    """
     llm = get_llm(
         model=model_name,
         temperature=temperature,
@@ -134,7 +149,28 @@ def run_correctness_judge(
     model_name: Optional[str] = None,
     temperature: float = 0.1,
 ) -> JudgeResult:
-    """Execute the LLM judge and return its structured verdict."""
+    """
+    Run the Gemini-based correctness judge on an assistant reply and return its structured verdict.
+    
+    Executes the configured LLM judge with provided email content, assistant reply, and tool trace/context, normalizes the judge output into a JudgeResult, and attaches feedback to LangSmith runs when available.
+    
+    Parameters:
+        email_markdown (str): The email content in markdown used as the judged context.
+        assistant_reply (str): The assistant's final reply to be evaluated.
+        tool_trace (str): A textual trace of tool usage and results.
+        tool_calls_summary (str): Short human-readable summary of tool calls (used for prompt context).
+        tool_calls_json (str): JSON payload describing tool call entries (defaults to "[]").
+        raw_output_optional (str): Optional raw model or run output to include for context.
+        parent_run_id (Optional[str]): LangSmith run id used to attach feedback; if omitted an attempt is made to locate a matching run.
+        model_name (Optional[str]): Override for the judge model name; defaults to configured model.
+        temperature (float): Sampling temperature for the judge LLM.
+    
+    Returns:
+        JudgeResult: Structured evaluation including overall_correctness, verdict, content_alignment, tool_usage, missing_tools, incorrect_tool_uses, evidence, and notes.
+    
+    Raises:
+        JudgeUnavailableError: If required configuration (e.g., GOOGLE_API_KEY) is missing, if the judge produces unparsable output, or if invocation otherwise fails.
+    """
 
     if not os.getenv("GOOGLE_API_KEY"):
         raise JudgeUnavailableError(
@@ -340,6 +376,23 @@ def _tool_result_payload(message: object) -> Tuple[str, str]:
 
 
 def _build_tool_call_context(messages: Iterable[object]) -> Tuple[str, str]:
+    """
+    Builds a human-readable summary and a compact JSON payload describing tool calls found in the provided messages.
+    
+    Scans each message for tool call entries and collects for each call: a step index, the tool name, a compacted `args` representation, and an optional `result` (when a corresponding tool result payload is available). If no messages or no tool calls are found, returns the sentinel summary "(no tool calls)" and the JSON string "[]".
+    
+    Parameters:
+        messages (Iterable[object]): An iterable of message-like objects to inspect for tool calls. Messages may be dicts or objects with tool call structures; the function tolerates varied shapes and will coerce non-dict call entries to strings.
+    
+    Returns:
+        tuple:
+            summary (str): A newline-separated human-readable list of tool calls with step numbers, names, args, and optional results (or "(no tool calls)" when none).
+            tool_calls_json (str): A compact JSON string representing an array of entries, where each entry is an object with keys:
+                - "step" (int): sequential index of the call in the scanned messages
+                - "name" (str): tool name
+                - "args" (str): compacted JSON/text representation of arguments
+                - "result" (str, optional): truncated/compacted result payload when available
+    """
     messages = list(messages or [])
     if not messages:
         return "(no tool calls)", "[]"
@@ -391,6 +444,27 @@ def build_tool_call_context(messages: Iterable[object]) -> Tuple[str, str]:
 
 
 def _normalise_result_dict(data: dict) -> dict:
+    """
+    Normalize a raw judge result dictionary into the canonical structure expected by the evaluator.
+    
+    This enforces types and bounds, sanitizes list entries, trims long text fields, and computes missing aggregate fields so the returned dict conforms to the JudgeResult contract used elsewhere in the module.
+    
+    Parameters:
+        data (dict): Raw result data from the LLM judge/parser. May include keys such as
+            "incorrect_tool_uses", "missing_tools", "evidence", "content_alignment",
+            "tool_usage", "overall_correctness", "verdict", and "notes".
+    
+    Returns:
+        dict: A normalized copy of `data` where:
+          - "incorrect_tool_uses" entries are guaranteed to be dicts with at least "tool" and "why".
+          - "missing_tools" is a list.
+          - "evidence" contains up to four trimmed string entries (120 chars max each).
+          - "content_alignment" and "tool_usage" are coerced to integers when present.
+          - "tool_usage" is set or capped appropriately when there are missing or incorrect tool uses.
+          - "overall_correctness" is recomputed from content_alignment (60%) and tool_usage (40%) when both are available, otherwise coerced to float if present.
+          - "verdict" is lowercased and forced to "fail" when tool usage indicates an issue.
+          - "notes" is populated with a sensible default message when empty and trimmed to 300 characters.
+    """
     result = data.copy()
     incorrect = result.get("incorrect_tool_uses") or []
     normalised_incorrect = []
@@ -450,7 +524,16 @@ def _record_feedback(
     parent_run_id: Optional[str] = None,
     email_markdown: Optional[str] = None,
 ) -> None:
-    """Attach judge feedback to the current LangSmith run if possible."""
+    """
+    Attach judge feedback to a LangSmith run when available.
+    
+    Locate an appropriate run (using parent_run_id or the current run tree), attempt to resolve the most relevant agent run by matching email content or fingerprint, and create feedback entries describing missing tools, incorrect tool uses, numeric metrics (tool_usage, content_alignment, overall_correctness), evidence, notes, and the final verdict. Attachment is best-effort: it communicates with the LangSmith API, may delay briefly to influence feedback ordering, and silently ignores any errors so callers are not disrupted.
+    
+    Parameters:
+        result (JudgeResult): Normalized judge result containing scores, verdict, evidence, notes, and tool issue details.
+        parent_run_id (Optional[str]): Optional fallback run id used as the root for resolving the target agent run. If omitted, the current run tree is used.
+        email_markdown (Optional[str]): Optional email markdown used to match runs by fingerprint or content when resolving the correct agent run to attach feedback to.
+    """
 
     try:
         base_run_id = parent_run_id
@@ -463,6 +546,16 @@ def _record_feedback(
         client = Client()
 
         def _ancestor_chain(start_id: str, max_depth: int = 6) -> List[Tuple[str, str]]:
+            """
+            Builds an ancestor chain of run IDs and names starting from `start_id` up through parent runs up to `max_depth`.
+            
+            Parameters:
+                start_id (str): The starting run ID to trace upward.
+                max_depth (int): Maximum number of ancestry steps to follow (default 6).
+            
+            Returns:
+                List[Tuple[str, str]]: Ordered list of `(run_id, name)` tuples beginning with `start_id` and moving to its parents. If a run cannot be read, its ID is included with an empty name and traversal stops. Cycles or missing IDs terminate the chain early.
+            """
             chain: List[Tuple[str, str]] = []
             current_id = start_id
             visited: set[str] = set()
@@ -487,6 +580,14 @@ def _record_feedback(
         target_fingerprint = email_fingerprint(email_markdown)
 
         def _matches_markdown(run: Run) -> bool:
+            """
+            Checks whether a LangSmith run matches the target email content by fingerprint or markdown.
+            
+            First, if a target fingerprint is available, compares it to the run's `metadata.email_fingerprint` or `extra.email_fingerprint` and returns `True` on match. If no fingerprint match and a target markdown is provided, compares the run's `metadata.email_markdown` or `extra.email_markdown` for exact equality or substring containment in either direction.
+            
+            Returns:
+                bool: `True` if the run matches by fingerprint or markdown, `False` otherwise.
+            """
             candidate_fp = None
             if target_fingerprint:
                 candidate_fp = (
@@ -516,6 +617,22 @@ def _record_feedback(
             )
 
         def _resolve_agent_run(start_id: str, depth: int = 0) -> str:
+            """
+            Resolve the most appropriate agent-related run id for a given starting run by searching children and related session runs.
+            
+            Searches downward from the provided start_id (up to a recursion depth of 3) to locate a run whose name indicates an agent/email_assistant run and that best matches the target content fingerprint or markdown when available. The resolution prioritizes:
+            - direct child runs with agent-like names (most recent first),
+            - recursively resolved children,
+            - candidate runs within the same session/project matched by content fingerprint or markdown, reference_example_id, trace_id, or closest start time within 180 seconds (preferring runs that started at or after the start run).
+            If a matching agent run cannot be found, the function may return a pending agent child id (if one exists and no explicit target markdown/fingerprint is provided) or the original start_id.
+            
+            Parameters:
+                start_id (str): The run id from which to begin resolution.
+                depth (int): Current recursion depth (used internally); recursion stops and returns start_id when greater than 3.
+            
+            Returns:
+                str: The resolved agent run id, or the original start_id if no better candidate is found.
+            """
             if depth > 3:
                 return start_id
             try:
@@ -545,6 +662,15 @@ def _record_feedback(
                 # Prioritise the most recent children so feedback targets the
                 # run that just completed rather than earlier siblings rolled
                 # up under the same parent (e.g., parametrised pytest case).
+                """
+                Return the given runs sorted with the most recently started first.
+                
+                Parameters:
+                    runs (List[Run]): Iterable of Run objects; each may have a `start_time` attribute.
+                
+                Returns:
+                    List[Run]: The input runs sorted by `start_time` in descending order. Runs with missing or unparsable `start_time` are treated as oldest.
+                """
                 def _start_time(run: Run) -> float:
                     ts = getattr(run, "start_time", None)
                     if ts is None:
@@ -650,6 +776,14 @@ def _record_feedback(
                 run_ids.append(candidate)
 
         def _attach_feedback(run_id: str) -> None:
+            """
+            Attach judge feedback entries to the LangSmith run identified by `run_id`.
+            
+            Emits structured feedback for missing tools, incorrect tool uses, metric scores (tool_usage, content_alignment, overall_correctness), evidence snippets, notes, and the final verdict. Exceptions during feedback submission are suppressed to avoid interrupting the caller; a small configurable delay may be applied between submissions to influence UI ordering.
+            
+            Parameters:
+                run_id (str): LangSmith run identifier to which feedback entries will be attached.
+            """
             def _safe_feedback(**kwargs: Any) -> None:
                 try:
                     client.create_feedback(run_id=run_id, **kwargs)

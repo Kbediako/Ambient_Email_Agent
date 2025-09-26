@@ -79,6 +79,17 @@ def _debug_log(message: str) -> None:
         print(f"[trace-debug] {message}")
 
 def _project_with_date(base: str) -> str:
+    """
+    Append the current date (respecting the configured trace timezone) to a base project identifier.
+    
+    The function uses the timezone named by EMAIL_ASSISTANT_TRACE_TIMEZONE (falls back to UTC if the zone is unknown) and formats the date as YYYYMMDD. If `base` contains a colon (`prefix:suffix`), the returned name is formatted as `prefix-SUFFIX-YYYYMMDD` (the suffix is uppercased); otherwise the returned name is `base-YYYYMMDD`.
+    
+    Parameters:
+        base (str): The base project identifier to which the date will be appended.
+    
+    Returns:
+        str: A project name string with the current date appended.
+    """
     tzinfo = timezone.utc
     if ZoneInfo is not None:
         try:
@@ -101,6 +112,12 @@ def _project_with_date(base: str) -> str:
 
 
 def _agent_project_name() -> str:
+    """
+    Resolve the project name for agent tracing, applying a date suffix and honoring an environment override.
+    
+    Returns:
+        project_name (str): Project name with the current date appended. Uses the value of EMAIL_ASSISTANT_TRACE_PROJECT if set; otherwise uses "email-assistant:agent".
+    """
     override = os.getenv("EMAIL_ASSISTANT_TRACE_PROJECT")
     if override:
         return _project_with_date(override)
@@ -108,6 +125,14 @@ def _agent_project_name() -> str:
 
 
 def _judge_project_name() -> str:
+    """
+    Resolve the LangSmith project name used for judge runs, allowing an environment override.
+    
+    If the environment variable EMAIL_ASSISTANT_JUDGE_PROJECT is set, its value is used; otherwise the default "email-assistant:judge" is used. In either case the result is formatted with the current date via _project_with_date.
+    
+    Returns:
+        str: Project name including the current date.
+    """
     override = os.getenv("EMAIL_ASSISTANT_JUDGE_PROJECT")
     if override:
         return _project_with_date(override)
@@ -713,7 +738,25 @@ def prime_parent_run(
     thread_id: str | None = None,
     run_label: str | None = None,
 ) -> bool:
-    """Prime the root LangSmith run with readable inputs/metadata."""
+    """
+    Populate the root LangSmith run with readable inputs, metadata, and extra payload derived from an email-like input.
+    
+    Primes the root run (if available) by computing a compact grid summary of `email_input`, preparing base metadata (including an optional truncated `email_markdown` and a stable `email_fingerprint`), merging provided metadata/extra updates, and performing a best-effort update to the run's inputs/outputs/metadata/extra. Safe no-op if no current run tree is available or the root run cannot be determined.
+    
+    Parameters:
+        email_input (Any): Raw email-like input object (e.g., dict or message) used as the canonical example and stored in run payloads.
+        email_markdown (str | None): Optional full email markdown/plain-text used to compute a truncated stored copy and fingerprint.
+        metadata_update (Mapping[str, Any] | None): Additional metadata fields to merge into the run's metadata payload.
+        extra_update (Mapping[str, Any] | None): Additional extra fields to merge into the run's extra payload.
+        outputs (Any | None): Final outputs to attach to the root run (passed through to the update call).
+        agent_label (str | None): Optional display name used as the run name when updating the root run.
+        tags (SeqType[str] | None): Additional tags to apply to the run; merged with default trace tags.
+        thread_id (str | None): Optional thread identifier included in generated base metadata.
+        run_label (str | None): Optional user-visible label included in generated base metadata.
+    
+    Returns:
+        bool: `true` if the function performed an update to the root run, `false` otherwise.
+    """
 
     if get_current_run_tree is None:
         return False
@@ -1120,7 +1163,15 @@ __all__ = [
     "TraceRunHandle",
 ]
 def email_fingerprint(email_markdown: str | None) -> str | None:
-    """Return a stable fingerprint for the provided email markdown."""
+    """
+    Compute a stable 24-hex fingerprint for an email represented as markdown.
+    
+    Parameters:
+        email_markdown (str | None): Email content in markdown form. Leading/trailing whitespace and repeated internal whitespace are normalized and case is ignored.
+    
+    Returns:
+        str | None: A 24-character hexadecimal fingerprint when `email_markdown` is provided, or `None` if `email_markdown` is `None` or empty.
+    """
 
     if not email_markdown:
         return None

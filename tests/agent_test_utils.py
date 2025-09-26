@@ -99,13 +99,14 @@ def load_dataset(agent_module_name: str) -> Tuple[List, List, List, List, List]:
 
 
 def compile_agent(agent_module_name: str) -> Tuple[Any, Dict[str, Any], Optional[InMemoryStore], Any]:
-    """Compile the requested agent graph and return runtime artefacts.
-
+    """
+    Compile the agent module's workflow and prepare per-run runtime artifacts for testing.
+    
     Returns:
-        email_assistant: Compiled LangGraph callable
-        thread_config: Per-run configuration (fresh thread id with recursion guard)
-        store: Optional memory store reference (None for stateless agents)
-        module: Imported agent module (for introspection in tests)
+        email_assistant: The compiled workflow callable configured with durability "sync".
+        thread_config: Per-run configuration dict containing `run_id`, `configurable` (includes `thread_id`, `thread_metadata`, `timezone`, and `eval_mode`), and `recursion_limit`.
+        store: An InMemoryStore instance for agents that use persisted memory, or `None` for stateless agents.
+        module: The imported agent module object.
     """
 
     module_name = f"email_assistant.{agent_module_name}"

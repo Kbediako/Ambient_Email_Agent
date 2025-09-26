@@ -14,13 +14,20 @@ _DEFAULT_TIMEZONE = os.getenv("EMAIL_ASSISTANT_TIMEZONE", "Australia/Melbourne")
 def extract_runtime_metadata(
     runtime: Runtime[AssistantContext] | None,
 ) -> tuple[str, bool, str | None, dict[str, Any]]:
-    """Return timezone/eval flags/thread id metadata for tracing.
-
-    Args:
-        runtime: LangGraph runtime provided to the node.
-
+    """
+    Extract timezone, evaluation-mode flag, thread identifier, and a metadata dictionary from a Runtime's context.
+    
+    If `runtime` or its context is absent, returns sensible defaults: timezone falls back to the module default, `eval_mode` to False, and `thread_id` to None when not present; `thread_id` is taken from `context["thread_id"]` or `context["thread_metadata"]["thread_id"]` when available.
+    
+    Parameters:
+        runtime (Runtime[AssistantContext] | None): LangGraph runtime containing the assistant context, or `None`.
+    
     Returns:
-        A tuple of (timezone, eval_mode, thread_id, metadata_dict).
+        tuple[str, bool, str | None, dict[str, Any]]: A tuple of
+            - `timezone`: timezone string,
+            - `eval_mode`: `true` if evaluation mode is enabled, `false` otherwise,
+            - `thread_id`: thread identifier string or `None`,
+            - `metadata`: dictionary with keys `"timezone"` and `"eval_mode"`.
     """
 
     context = (runtime.context if runtime and runtime.context else {})  # type: ignore[attr-defined]
@@ -33,7 +40,12 @@ def extract_runtime_metadata(
 
 
 def runtime_thread_id(runtime: Runtime[AssistantContext] | None) -> str | None:
-    """Convenience accessor for the current thread id."""
+    """
+    Get the current thread id from the provided runtime context.
+    
+    Returns:
+        `thread_id` string from `runtime.context["thread_id"]` or `runtime.context["thread_metadata"]["thread_id"]`, or `None` if no runtime is provided or no thread id is found.
+    """
 
     if not runtime:
         return None
