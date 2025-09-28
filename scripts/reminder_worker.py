@@ -15,7 +15,13 @@ from email_assistant.tools.reminders import (
 
 
 def check_reminders(store: ReminderStore):
-    """Core logic to check for and process due reminders."""
+    """
+    Check for due reminders, send notifications for each, and mark them as notified.
+    
+    For each reminder returned by the store's get_due_reminders(), this function sends a notification using the default delivery mechanism and then marks that reminder as notified in the store. Errors while processing individual reminders or while fetching due reminders are caught and reported.
+    Parameters:
+        store (ReminderStore): Store used to fetch due reminders and to mark reminders as notified.
+    """
     print("INFO: Running reminder check...")
     delivery = get_default_delivery()
     try:
@@ -38,7 +44,12 @@ def check_reminders(store: ReminderStore):
     print("INFO: Reminder check complete.")
 
 def list_reminders(store: ReminderStore):
-    """Lists all active (pending) reminders."""
+    """
+    Prints a human-readable list of active (pending) reminders to standard output.
+    
+    If no active reminders exist, prints "No active reminders found." Each listed reminder
+    includes its ID, thread ID, subject, and due time (ISO format when available).
+    """
     print("--- Active Reminders ---")
     reminders = list(store.iter_active_reminders())
 
@@ -57,7 +68,12 @@ def list_reminders(store: ReminderStore):
         )
 
 def cancel_reminder_cli(store: ReminderStore, thread_id: str):
-    """CLI command to cancel a reminder."""
+    """
+    Cancel active reminders for the specified thread and print a status message.
+    
+    Parameters:
+        thread_id (str): Identifier of the thread whose active reminders should be cancelled.
+    """
     print(f"Attempting to cancel reminders for thread: {thread_id}...")
     cancelled_count = store.cancel_reminder(thread_id)
     if cancelled_count > 0:
@@ -66,6 +82,17 @@ def cancel_reminder_cli(store: ReminderStore, thread_id: str):
         print("No active reminder found for that thread ID.")
 
 def main():
+    """
+    Command-line entry point for the reminder worker and simple admin commands.
+    
+    Parses CLI arguments and dispatches one of the following actions:
+    - --once: run a single check for due reminders.
+    - --loop: run periodic checks using REMINDER_POLL_INTERVAL_MIN (environment variable, defaults to 15) as the interval in minutes.
+    - --list: print all active (pending) reminders.
+    - --cancel THREAD_ID: cancel an active reminder by its thread ID.
+    
+    This function obtains the default ReminderStore and invokes the corresponding helper functions to perform checks, listing, or cancellation. It handles graceful shutdown when running in loop mode.
+    """
     load_dotenv()
     parser = argparse.ArgumentParser(description="Reminder worker and admin tool for the Email Assistant.")
     group = parser.add_mutually_exclusive_group()

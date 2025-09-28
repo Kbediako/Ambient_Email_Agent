@@ -325,15 +325,17 @@ def triage_router_task(
     runtime: Runtime[AssistantContext],
 ) -> Command[Literal["triage_interrupt_handler", "response_agent", "__end__"]]:
     """
-    Analyze an incoming Gmail message, update reminders, and decide the next agent step.
+    Analyze an incoming Gmail message, update or enqueue reminder actions as needed, and choose the next workflow node.
     
-    Parses the email from state, primes a parent trace run with runtime-derived metadata, and uses the router model plus user triage preferences to classify the email. Based on the classification and whether a reply from the user was detected, this function may cancel existing reminders or create a new reminder, and selects the next workflow target and update payload.
+    Parses the email in `state`, assesses the sender, records tracing metadata, and runs the router model with user triage preferences to classify the message. Depending on the classification and whether a user reply was detected, enqueues reminder create/cancel actions, may update sender notes, and selects the next node in the workflow (triage interrupt, response agent, or end). If a high-risk sender triggers a reminder judge decision, this function can short-circuit to a manual review or end the workflow.
     
     Parameters:
-        runtime (Runtime[AssistantContext]): Runtime containing thread, timezone, and eval-mode metadata used for tracing and decision-making.
+        state (State): Current workflow state containing `email_input` and related fields.
+        store (BaseStore): Persistent store used for reading/updating sender preferences and memories.
+        runtime (Runtime[AssistantContext]): Runtime with execution metadata (timezone, thread context, eval mode) used for tracing and thread resolution.
     
     Returns:
-        Command: A Command whose `goto` is one of "triage_interrupt_handler", "response_agent", or "__end__", and whose `update` contains at minimum `classification_decision` and, when applicable, a `messages` list instructing the response agent.
+        Command: A Command whose `goto` is one of "triage_interrupt_handler", "response_agent", or "__end__", and whose `update` includes `classification_decision` and, when applicable, a `messages` list and `reminder_next_node`.
     """
 
     email_input = state["email_input"]

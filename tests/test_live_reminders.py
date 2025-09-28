@@ -31,6 +31,14 @@ except Exception:  # pragma: no cover - logging disabled when LangSmith SDK miss
 
 
 def _safe_log_inputs(payload, run_id):
+    """
+    Log the given input payload to the LangSmith test logger when the LangSmith client is available.
+    
+    If a `run_id` is provided it will be associated with the logged inputs. Any errors raised while attempting to log are ignored.
+    Parameters:
+        payload: The input data to record (typically dict or serializable object).
+        run_id (optional): Identifier of the run to associate with the logged inputs.
+    """
     if not t:
         return
     try:
@@ -43,6 +51,16 @@ def _safe_log_inputs(payload, run_id):
 
 
 def _safe_log_outputs(payload, run_id):
+    """
+    Log an outputs payload to LangSmith if the LangSmith client is available.
+    
+    Parameters:
+        payload: The output data to record (typically a dict or other serializable object).
+        run_id (optional): Run identifier to associate the outputs with; if omitted the logging call is made without an explicit run ID.
+    
+    Notes:
+        Errors raised by the LangSmith client are suppressed and the function is a no-op when the LangSmith client is unavailable.
+    """
     if not t:
         return
     try:
@@ -55,12 +73,33 @@ def _safe_log_outputs(payload, run_id):
 
 
 def _extract_values(state):
+    """
+    Return the underlying `values` attribute of a state-like object, or the state itself if no `values` attribute exists.
+    
+    Parameters:
+        state: An object that may expose a `values` attribute (e.g., a state wrapper) or any other value.
+    
+    Returns:
+        The `values` attribute of `state` when present; otherwise the original `state`.
+    """
     if hasattr(state, "values"):
         return state.values
     return state
 
 @pytest.fixture(autouse=True)
 def _configure_live_reminder_env(monkeypatch):
+    """
+    Configure environment and tracing for live reminder end-to-end tests.
+    
+    Sets the reminder graph logger to INFO, configures tracing and judge projects for the live-reminders test run, and sets environment variables that enable the LLM judge, loosen judge strictness, enable HITL auto-accept, and skip marking messages as read. If no Google key is available and evaluation mode is not already enabled, also enables evaluation mode.
+    
+    Environment variables set:
+    - EMAIL_ASSISTANT_LLM_JUDGE=1
+    - EMAIL_ASSISTANT_JUDGE_STRICT=0
+    - HITL_AUTO_ACCEPT=1
+    - EMAIL_ASSISTANT_SKIP_MARK_AS_READ=1
+    - EMAIL_ASSISTANT_EVAL_MODE=1 (only when no Google key and not already in eval mode)
+    """
     logging.getLogger("email_assistant.graph.reminder_nodes").setLevel(logging.INFO)
     configure_tracing_project("email-assistant-live-reminders")
     configure_judge_project("email-assistant-judge-live-reminders")
@@ -101,11 +140,32 @@ def test_live_reminder_create_and_cancel(agent_module_name, monkeypatch, gmail_s
     _safe_log_inputs({"case": "reminder_create", "email": first_email}, run_id)
 
     def _invoke_initial():
+        """
+        Invoke the assistant with the initial reminder payload using the test thread configuration.
+        
+        Returns:
+            The assistant invocation result (response/state object).
+        """
         return email_assistant.invoke(payload, config=thread_config, durability="sync")
 
     artifacts: dict[str, object] = {}
 
     def _snapshot(reminders):
+        """
+        Convert a sequence of reminder objects into serializable dictionary snapshots.
+        
+        Parameters:
+            reminders (Iterable): Iterable of reminder-like objects with attributes
+                `thread_id`, `subject`, `due_at`, `reason`, and `status`.
+        
+        Returns:
+            list[dict]: A list of dictionaries each containing:
+                - `thread_id`: the reminder's thread identifier
+                - `subject`: the reminder's subject
+                - `due_at`: ISO 8601 string of `due_at` if it has an `isoformat()` method, otherwise an empty string
+                - `reason`: the reminder's reason
+                - `status`: the reminder's status
+        """
         return [
             {
                 "thread_id": r.thread_id,
@@ -118,11 +178,38 @@ def test_live_reminder_create_and_cancel(agent_module_name, monkeypatch, gmail_s
         ]
 
     def _invoke_stage(stage_name: str, stage_payload: dict, stage_summary: str) -> dict:
+        """
+        Run a named tracing stage that invokes the email assistant with the provided payload and returns the assistant's state values.
+        
+        Parameters:
+            stage_name (str): Name of the tracing stage.
+            stage_payload (dict): Payload to send to the assistant for this stage.
+            stage_summary (str): Short summary of the inputs for tracing.
+        
+        Returns:
+            dict: The assistant's state values after invocation.
+        """
         with trace_stage(stage_name, inputs_summary=stage_summary):
             email_assistant.invoke(stage_payload, config=thread_config, durability="sync")
         return _extract_values(email_assistant.get_state(thread_config))
 
     def _run_flow():
+        """
+        Execute an end-to-end reminder flow: create a reminder, simulate HITL approval, then cancel it, while collecting artifacts.
+        
+        The function runs three staged agent invocations (create, approve, cancel), logs inputs/outputs for each stage, manipulates test environment to force judge decisions, and captures reminder store snapshots.
+        
+        Returns:
+            artifacts (dict): Mapping of collected run artifacts:
+                - root_run_id (str): Root tracing run identifier.
+                - initial_state (dict): Agent state after the initial create invocation.
+                - initial_reminders (list): Active reminders before HITL approval.
+                - followup_state (dict): Agent state after the approval invocation.
+                - followup_reminders (list): Active reminders after approval.
+                - reply_state (dict): Agent state after the cancellation invocation.
+                - reminders_after (list): Active reminders remaining after cancellation.
+                - Any additional intermediate entries produced during the flow.
+        """
         root_run_id = current_root_run_id()
         artifacts["root_run_id"] = root_run_id
         initial_state = _invoke_stage("agent:reminder:create", payload, summary)

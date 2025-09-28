@@ -33,7 +33,24 @@ def combine_judge_scores(
     weights: Optional[Dict[str, float]] = None,
     threshold: float = 0.70,
 ) -> CompositeJudgeResult:
-    """Combine correctness and reminder judges into a single weighted score."""
+    """
+    Produce a weighted composite judge result from correctness and reminder scores.
+    
+    Parameters:
+        correctness (JudgeResult): JudgeResult containing `overall_correctness` in [0.0, 1.0].
+        reminder (ReminderRunJudgeVerdict): Verdict containing `reminder_score` in [0.0, 1.0].
+        weights (Optional[Dict[str, float]]): Optional mapping with keys "correctness" and "reminder"
+            that specify relative weights for each component. Defaults to {"correctness": 0.6, "reminder": 0.4}.
+        threshold (float): Score threshold used to assign the verdict "pass" when the composite score
+            is greater than or equal to this value. Default is 0.70.
+    
+    Returns:
+        CompositeJudgeResult: Contains `overall_score` (the weighted composite score), `verdict` ("pass" or "fail"),
+        `component_scores` mapping the individual component scores, and a `notes` string summarizing values and weights.
+    
+    Raises:
+        ValueError: If the sum of provided weights is less than or equal to zero.
+    """
 
     weights = weights or {"correctness": 0.6, "reminder": 0.4}
     correct_w = weights.get("correctness", 0.6)
@@ -64,6 +81,17 @@ def combine_judge_scores(
 
 
 def _resolve_judge_project() -> str:
+    """
+    Resolve the judge project identifier using environment-variable overrides with fallbacks.
+    
+    Checks the following environment variables in order and returns the first non-empty value found:
+    EMAIL_ASSISTANT_REMINDER_JUDGE_PROJECT_OVERRIDE, EMAIL_ASSISTANT_REMINDER_JUDGE_PROJECT,
+    EMAIL_ASSISTANT_JUDGE_PROJECT_OVERRIDE, EMAIL_ASSISTANT_JUDGE_PROJECT. If none are set,
+    returns the module-level default JUDGE_PROJECT.
+    
+    Returns:
+        str: The resolved judge project name.
+    """
     for key in (
         "EMAIL_ASSISTANT_REMINDER_JUDGE_PROJECT_OVERRIDE",
         "EMAIL_ASSISTANT_REMINDER_JUDGE_PROJECT",
@@ -77,6 +105,12 @@ def _resolve_judge_project() -> str:
 
 
 def _resolve_agent_project() -> str:
+    """
+    Determine the agent project name, preferring an environment-variable override.
+    
+    Returns:
+        str: The agent project name — the value of `EMAIL_ASSISTANT_REMINDER_AGENT_PROJECT` if set, otherwise the default `AGENT_PROJECT`.
+    """
     override = os.getenv("EMAIL_ASSISTANT_REMINDER_AGENT_PROJECT")
     if override:
         return override
@@ -89,6 +123,16 @@ def _attach_composite_feedback(
     *,
     email_markdown: Optional[str],
 ) -> None:
+    """
+    Attach the composite judge result as feedback to LangSmith runs when an API key and target runs are available.
+    
+    This attempts to resolve feedback targets (optionally using the provided run_id and email_markdown) and create a feedback entry named "reminder_composite" for each target run. If the LANGSMITH_API_KEY is not set, or no client/targets are resolved, the function returns without action. Individual feedback creation errors are ignored so a failure for one target does not prevent attempts for others.
+    
+    Parameters:
+        run_id (Optional[str]): Optional run identifier to scope feedback target resolution.
+        result (CompositeJudgeResult): The composite evaluation to attach as feedback; its serialized payload, overall score, verdict, and notes are included in the feedback.
+        email_markdown (Optional[str]): Optional markdown string used when resolving feedback targets or providing context.
+    """
     if not os.getenv("LANGSMITH_API_KEY"):
         return
 
@@ -147,7 +191,24 @@ def run_composite_judge(
     reminder_created: Optional[List[dict]] = None,
     reminder_cleared: Optional[List[dict]] = None,
 ) -> CompositeJudgeResult:
-    """Evaluate the composite reminder score and persist LangSmith artefacts."""
+    """
+    Compute a weighted composite reminder judgment from correctness and reminder judgments, record the result as a traced run with metadata, and attach LangSmith feedback when configured.
+    
+    Parameters:
+        correctness: JudgeResult containing the correctness evaluation for the run.
+        reminder: ReminderRunJudgeVerdict containing the reminder-specific evaluation for the run.
+        parent_run_id: Optional run identifier to attach LangSmith feedback to.
+        weights: Optional mapping of component weights (keys "correctness" and "reminder"); defaults to {"correctness": 0.6, "reminder": 0.4}.
+        threshold: Score threshold used to determine the composite verdict; defaults to 0.70.
+        sender_email: Optional sender email used to construct or enrich the recorded email payload.
+        email_markdown: Optional markdown content of the email used as feedback context.
+        email_input: Optional prebuilt email payload to record instead of deriving one from other inputs.
+        reminder_created: Optional list of dicts describing reminders created during processing; included in run metadata.
+        reminder_cleared: Optional list of dicts describing reminders cleared during processing; included in run metadata.
+    
+    Returns:
+        CompositeJudgeResult: The finalized composite evaluation containing overall_score, verdict, component_scores, and notes.
+    """
 
     result = combine_judge_scores(
         correctness,
@@ -174,6 +235,12 @@ def run_composite_judge(
         )
 
     def _log_result() -> CompositeJudgeResult:
+        """
+        Log the composite judge result as a parent run artifact and return it.
+        
+        Returns:
+            result (CompositeJudgeResult): The composite judge result that was recorded and is returned unchanged.
+        """
         prime_parent_run(
             email_input=email_payload,
             email_markdown=email_markdown or "",
@@ -193,6 +260,15 @@ def run_composite_judge(
         return result
 
     def _summary(value: CompositeJudgeResult) -> str:
+        """
+        Create a compact one-line summary of a CompositeJudgeResult for logging or display.
+        
+        Parameters:
+            value (CompositeJudgeResult): The composite judge result to summarize.
+        
+        Returns:
+            summary (str): Single-line string containing the verdict and overall score formatted to two decimal places (e.g., "[reminder_composite] verdict=pass score=0.85").
+        """
         return (
             f"[reminder_composite] verdict={value.verdict} "
             f"score={value.overall_score:.2f}"

@@ -47,7 +47,14 @@ Context:
 
 
 def _resolve_reminder_project() -> str:
-    """Return the LangSmith project name for reminder-judge traces."""
+    """
+    Determine the LangSmith project name to use for reminder-judge traces.
+    
+    Checks a prioritized list of environment variables and returns the first non-empty value; if none are set, returns the module-level JUDGE_PROJECT constant.
+    
+    Returns:
+        project (str): The selected LangSmith project name for reminder-judge traces.
+    """
 
     for env_key in (
         "EMAIL_ASSISTANT_REMINDER_JUDGE_PROJECT_OVERRIDE",
@@ -62,7 +69,14 @@ def _resolve_reminder_project() -> str:
 
 
 def _resolve_agent_project() -> str:
-    """Return the LangSmith project name for reminder feedback on agent runs."""
+    """
+    Determine the LangSmith project name to use when attaching reminder feedback to agent runs.
+    
+    If the environment variable `EMAIL_ASSISTANT_REMINDER_AGENT_PROJECT` is set, that value is returned; otherwise the module-level `AGENT_PROJECT` value is returned.
+    
+    Returns:
+        str: The resolved project name for agent reminder feedback.
+    """
 
     override = os.getenv("EMAIL_ASSISTANT_REMINDER_AGENT_PROJECT")
     if override:
@@ -73,6 +87,16 @@ def _resolve_agent_project() -> str:
 def _primary_thread_id(
     created: List[dict], cleared: List[dict]
 ) -> str | None:
+    """
+    Selects the first available thread_id from the created or cleared reminder records.
+    
+    Parameters:
+        created (List[dict]): Reminder creation records; the function checks the first element for a `thread_id`.
+        cleared (List[dict]): Reminder clearing records; checked if no `thread_id` is found in `created`.
+    
+    Returns:
+        thread_id (str | None): The first found `thread_id` as a string, or `None` if none is present.
+    """
     for group in (created, cleared):
         if not group:
             continue
@@ -89,6 +113,19 @@ def _reminder_input_payload(
     email_markdown: str,
     assistant_reply: str,
 ) -> dict:
+    """
+    Builds a normalized payload describing the email and reminder context.
+    
+    Parameters:
+        sender_email (str): Sender's email address.
+        created (List[dict]): Reminder creation records; expected keys include "subject", "recipient" or "to", and "thread_id".
+        cleared (List[dict]): Reminder cleared records; expected keys may include "subject".
+        email_markdown (str): Original email body in markdown.
+        assistant_reply (str): Assistant's reply text (used as fallback for body).
+    
+    Returns:
+        dict: A payload with at least "from" and "body", and when available "subject", "to" (recipient), and "thread_id".
+    """
     payload: dict[str, Any] = {
         "from": sender_email or "",
         "body": email_markdown or assistant_reply or "",
@@ -117,6 +154,17 @@ def _reminder_input_payload(
 
 
 def _reminder_input_summary(sender_email: str, created: List[dict], cleared: List[dict]) -> str:
+    """
+    Builds a short summary of the reminder input counts and sender.
+    
+    Parameters:
+        sender_email (str): Email address of the sender; uses "(unknown sender)" if empty.
+        created (List[dict]): List of created reminder records.
+        cleared (List[dict]): List of cleared reminder records.
+    
+    Returns:
+        summary (str): Formatted string "sender={sender} | created={N} | cleared={M}".
+    """
     sender = sender_email or "(unknown sender)"
     return (
         f"sender={sender} | created={len(created)} | "
@@ -125,6 +173,15 @@ def _reminder_input_summary(sender_email: str, created: List[dict], cleared: Lis
 
 
 def _reminder_output_summary(verdict: ReminderRunJudgeVerdict) -> str:
+    """
+    Builds a short output summary for a reminder judgment.
+    
+    Parameters:
+        verdict (ReminderRunJudgeVerdict): The judge verdict to summarize.
+    
+    Returns:
+        summary (str): A one-line summary in the form "[reminder_judge] verdict=<pass|fail> score=<0.00-1.00>".
+    """
     return (
         f"[reminder_judge] verdict={verdict.verdict} "
         f"score={verdict.reminder_score:.2f}"
@@ -137,7 +194,15 @@ def _attach_feedback_to_agent(
     *,
     email_markdown: Optional[str],
 ) -> None:
-    """Attach reminder-judge feedback to the target agent run, if available."""
+    """
+    Attach the reminder judge verdict as feedback to associated agent runs when a LangSmith client is available.
+    
+    If LANGSMITH_API_KEY is not set or no feedback targets can be resolved, the function returns without action. If an agent project is resolved, the function will set LANGSMITH_PROJECT and LANGCHAIN_PROJECT environment variables for the feedback client. Any errors encountered while resolving targets or creating feedback entries are ignored; the function never raises.
+    Parameters:
+        run_id (Optional[str]): Optional agent run id to use as a starting point for resolving feedback targets.
+        verdict (ReminderRunJudgeVerdict): Verdict to attach; its fields are uploaded as the feedback payload and comment.
+        email_markdown (Optional[str]): Optional email body used to help resolve which agent runs should receive feedback.
+    """
 
     if not os.getenv("LANGSMITH_API_KEY"):
         return
@@ -187,7 +252,26 @@ def run_reminder_run_judge(
     parent_run_id: Optional[str] = None,
     model_name: Optional[str] = None,
 ) -> ReminderRunJudgeVerdict:
-    """Run the reminder-specific judge and return its verdict."""
+    """
+    Evaluate how reminders were handled for a single run and return a structured verdict.
+    
+    This function either returns a forced decision (when REMINDER_JUDGE_FORCE_DECISION is set) or invokes a configured LLM judge to produce a ReminderRunJudgeVerdict, logs tracing/parent runs, and attempts to attach feedback to a related agent run.
+    
+    Parameters:
+        email_markdown (str): The email body formatted as Markdown.
+        assistant_reply (str): The assistant's reply text associated with the email.
+        reminder_created (List[dict]): List of reminder creation records (dictionaries containing fields such as subject, to/recipient, and optional thread_id).
+        reminder_cleared (List[dict]): List of reminder clearance records (dictionaries containing fields such as subject and optional thread_id).
+        sender_email (str): The sender's email address used for context and summaries.
+        parent_run_id (Optional[str]): Optional agent run ID to which feedback should be attached.
+        model_name (Optional[str]): Optional override name for the LLM model used for judgment.
+    
+    Returns:
+        ReminderRunJudgeVerdict: Structured verdict containing `reminder_score` (0.0–1.0), `verdict` ("pass" or "fail"), `missing_controls`, and `notes`.
+    
+    Raises:
+        JudgeUnavailableError: If the LLM judge is disabled, required environment keys (e.g., GOOGLE_API_KEY) are missing, or the evaluation fails.
+    """
 
     judge_project = _resolve_reminder_project()
     forced = os.getenv("REMINDER_JUDGE_FORCE_DECISION", "").lower()
@@ -222,6 +306,14 @@ def run_reminder_run_judge(
             )
 
         def _log_forced() -> ReminderRunJudgeVerdict:
+            """
+            Log the forced decision as a primed parent run with metadata and return the verdict.
+            
+            Primes a parent LLM trace containing the email input payload, serialized verdict, tags, and metadata indicating the forced decision and related reminder details so the forced judgment is recorded in tracing systems.
+            
+            Returns:
+                ReminderRunJudgeVerdict: The forced verdict that was logged.
+            """
             email_input_payload = _reminder_input_payload(
                 sender_email,
                 reminder_created,
@@ -286,11 +378,25 @@ def run_reminder_run_judge(
     ]
 
     def _invoke(_: dict) -> ReminderRunJudgeVerdict:
+        """
+        Invoke the configured LLM with structured output to produce a ReminderRunJudgeVerdict.
+        
+        Returns:
+            ReminderRunJudgeVerdict: The parsed verdict produced by the LLM.
+        """
         llm = get_llm(model=model_name or os.getenv("EMAIL_ASSISTANT_REMINDER_JUDGE_MODEL") or None)
         structured = llm.with_structured_output(ReminderRunJudgeVerdict)
         return structured.invoke(prompt_messages)
 
     def _invoke_and_log() -> ReminderRunJudgeVerdict:
+        """
+        Invoke the configured LLM judge, record the parent and child LangSmith runs, and return the parsed verdict.
+        
+        This function calls the LLM invocation helper to obtain a ReminderRunJudgeVerdict, constructs and primes the parent run with the email input and verdict payload (including thread id and reminder metadata), logs the LLM child run with the prompt and structured response, and then returns the verdict.
+        
+        Returns:
+            ReminderRunJudgeVerdict: The structured verdict produced by the LLM judge.
+        """
         verdict_inner = _invoke({})
         email_input_payload = _reminder_input_payload(
             sender_email,

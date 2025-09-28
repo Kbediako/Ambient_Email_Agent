@@ -68,12 +68,24 @@ class ReminderStore(abc.ABC):
 
     @abc.abstractmethod
     def mark_as_notified(self, reminder_id: str) -> None:
-        """Mark a reminder as notified."""
+        """
+        Mark the reminder identified by `reminder_id` as notified.
+        
+        Updates the reminder's status to "notified" and sets its `notified_at` timestamp to the current UTC time.
+        
+        Parameters:
+            reminder_id (str): Identifier of the reminder to mark as notified.
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
     def iter_active_reminders(self) -> List[Reminder]:
-        """Return active reminders that have not been cancelled or notified."""
+        """
+        List active reminders that are pending and have not been canceled or notified.
+        
+        Returns:
+            active_reminders (List[Reminder]): A list of active Reminder objects (pending, not canceled, not notified).
+        """
         raise NotImplementedError
 
 
@@ -179,6 +191,12 @@ class SqliteReminderStore(ReminderStore):
         return [self._row_to_reminder(r) for r in rows]
 
     def mark_as_notified(self, reminder_id: str) -> None:
+        """
+        Mark a reminder as notified and record the current UTC notification timestamp.
+        
+        Parameters:
+            reminder_id (str): The unique identifier of the reminder to update.
+        """
         self.setup()
         with self._connect() as conn:
             conn.execute(
@@ -187,6 +205,12 @@ class SqliteReminderStore(ReminderStore):
             )
 
     def iter_active_reminders(self) -> List[Reminder]:
+        """
+        Return active reminders that are pending and neither canceled nor notified, ordered by due date ascending.
+        
+        Returns:
+            List[Reminder]: Reminders with status 'pending' where `canceled_at` and `notified_at` are null, sorted by `due_at` ascending.
+        """
         self.setup()
         with self._connect() as conn:
             rows = conn.execute(
@@ -197,6 +221,17 @@ class SqliteReminderStore(ReminderStore):
     # -------- helpers --------
     @staticmethod
     def _to_iso(dt: datetime) -> str:
+        """
+        Convert a datetime to an ISO 8601-formatted string in UTC.
+        
+        If the input is naive (no tzinfo) it is treated as UTC; if timezone-aware it is converted to UTC before formatting.
+        
+        Parameters:
+            dt (datetime): The datetime to convert.
+        
+        Returns:
+            str: ISO 8601 representation of `dt` in UTC.
+        """
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         else:

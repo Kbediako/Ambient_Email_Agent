@@ -57,6 +57,13 @@ __all__ = [
 
 
 def _debug_judge(message: str, *args: Any) -> None:
+    """
+    Log a debug message via the module logger when judge debug mode is enabled.
+    
+    Parameters:
+        message (str): The format string or message to log.
+        *args (Any): Optional format arguments to interpolate into `message`.
+    """
     if _JUDGE_DEBUG:
         logger.debug(message, *args)
 
@@ -162,26 +169,26 @@ def run_correctness_judge(
     temperature: float = 0.1,
 ) -> JudgeResult:
     """
-    Run the Gemini-based correctness judge on an assistant reply and return its structured verdict.
+    Evaluate an assistant reply and its tool usage for correctness using the Gemini judge.
     
-    Executes the configured LLM judge with provided email content, assistant reply, and tool trace/context, normalizes the judge output into a JudgeResult, and attaches feedback to LangSmith runs when available.
+    Executes the configured LLM judge with the provided email context, assistant reply, and tool-related context, normalizes the judge output into a JudgeResult, and (best-effort) attaches feedback to LangSmith runs when available.
     
     Parameters:
-        email_markdown (str): The email content in markdown used as the judged context.
+        email_markdown (str): The email content in Markdown used as the judged context.
         assistant_reply (str): The assistant's final reply to be evaluated.
-        tool_trace (str): A textual trace of tool usage and results.
-        tool_calls_summary (str): Short human-readable summary of tool calls (used for prompt context).
-        tool_calls_json (str): JSON payload describing tool call entries (defaults to "[]").
-        raw_output_optional (str): Optional raw model or run output to include for context.
-        parent_run_id (Optional[str]): LangSmith run id used to attach feedback; if omitted an attempt is made to locate a matching run.
-        model_name (Optional[str]): Override for the judge model name; defaults to configured model.
+        tool_trace (str): Human-readable trace of tool invocations and results.
+        tool_calls_summary (str): Short human-readable summary of tool calls for prompt context.
+        tool_calls_json (str): Compact JSON array describing tool call entries (e.g., steps, names, args, results).
+        raw_output_optional (str): Optional raw model or run output included to provide additional context to the judge.
+        parent_run_id (Optional[str]): LangSmith run id to which feedback should be attached; if omitted the function will attempt to locate a matching run.
+        model_name (Optional[str]): Optional override for the judge model name; uses the configured default if omitted.
         temperature (float): Sampling temperature for the judge LLM.
     
     Returns:
         JudgeResult: Structured evaluation including overall_correctness, verdict, content_alignment, tool_usage, missing_tools, incorrect_tool_uses, evidence, and notes.
     
     Raises:
-        JudgeUnavailableError: If required configuration (e.g., GOOGLE_API_KEY) is missing, if the judge produces unparsable output, or if invocation otherwise fails.
+        JudgeUnavailableError: If required configuration is missing (e.g., GOOGLE_API_KEY), if the judge produces unparsable output, or if invocation otherwise fails.
     """
 
     if not os.getenv("GOOGLE_API_KEY"):
@@ -204,6 +211,15 @@ def run_correctness_judge(
     should_trace = bool(os.getenv("LANGSMITH_API_KEY") and trace_project)
 
     def _invoke(data):
+        """
+        Invoke the cached judge runnable with the provided input payload.
+        
+        Parameters:
+            data (dict): Input payload for the judge chain; expected keys include the chain's prompt variables such as email_markdown, assistant_reply, tool_trace, tool_calls_summary, tool_calls_json, and raw_output_optional.
+        
+        Returns:
+            Any: The result produced by the chain invocation (the parsed judge output).
+        """
         return chain.invoke(data)
 
     if should_trace:
@@ -535,7 +551,17 @@ def resolve_feedback_targets(
     *,
     email_markdown: Optional[str] = None,
 ) -> Tuple[Optional[Client], List[str]]:
-    """Return the LangSmith client and candidate run ids for feedback attachment."""
+    """
+    Resolve the LangSmith client and an ordered list of candidate run IDs to attach feedback to.
+    
+    Parameters:
+        parent_run_id (Optional[str]): A starting run ID to search from; if omitted, the current run tree root is used.
+        email_markdown (Optional[str]): Optional email content used to match runs by fingerprint or truncated markdown.
+    
+    Returns:
+        Tuple[Optional[Client], List[str]]: A tuple where the first element is an initialized LangSmith Client (or `None` if a client could not be created),
+        and the second element is a list of candidate run IDs to attempt feedback attachment, ordered by preference (closest matching/most relevant first).
+    """
 
     try:
         base_run_id = parent_run_id
@@ -557,6 +583,16 @@ def resolve_feedback_targets(
     target_fingerprint = email_fingerprint(email_markdown)
 
     def _ancestor_chain(start_id: str, max_depth: int = 6) -> List[Tuple[str, str]]:
+        """
+        Builds a list of ancestor runs starting from `start_id` up to `max_depth`, returning each run's id and name in order from the start run upward.
+        
+        Parameters:
+            start_id (str): The run id to begin the ancestor traversal from.
+            max_depth (int): Maximum number of ancestors to include (including the start run).
+        
+        Returns:
+            List[Tuple[str, str]]: A list of (run_id, run_name) tuples. If a run lookup fails or an unexpected error occurs for a given id, that id will be included with an empty name. Traversal stops early on missing parent, repeated ids (cycle detection), or on lookup errors.
+        """
         chain: List[Tuple[str, str]] = []
         current_id = start_id
         visited: set[str] = set()
@@ -583,6 +619,17 @@ def resolve_feedback_targets(
         return chain
 
     def _matches_markdown(run: Run) -> bool:
+        """
+        Determine whether a Run corresponds to the target email fingerprint or markdown.
+        
+        Inspects the run's `metadata` and `extra` mappings for `email_fingerprint` and `email_markdown`. If `target_fingerprint` is set, returns True when the run's fingerprint equals it. If `target_markdown` is set, returns True when the run's markdown equals the target or one contains the other.
+        
+        Parameters:
+            run (Run): The run object to inspect; its `metadata` and `extra` (if present) are checked for matching keys.
+        
+        Returns:
+            bool: `True` if the run matches the `target_fingerprint` or `target_markdown`, `False` otherwise.
+        """
         if target_fingerprint:
             candidate_fp = (
                 getattr(run, "metadata", None) or {}
@@ -616,6 +663,15 @@ def resolve_feedback_targets(
         return False
 
     def _sorted_children(runs: List[Run]) -> List[Run]:
+        """
+        Sort runs by their start time in descending order.
+        
+        Parameters:
+            runs (List[Run]): Sequence of runs to sort.
+        
+        Returns:
+            List[Run]: The input runs ordered with the most recent `start_time` first. Runs with no `start_time` or with an invalid timestamp are treated as oldest and placed at the end.
+        """
         def _start_time(run: Run) -> float:
             ts = getattr(run, "start_time", None)
             if ts is None:
@@ -628,6 +684,18 @@ def resolve_feedback_targets(
         return sorted(runs, key=_start_time, reverse=True)
 
     def _resolve_agent_run(start_id: str, depth: int = 0) -> str:
+        """
+        Find the most appropriate agent-related run id starting from the given run and searching its children and session candidates.
+        
+        This function inspects the run identified by `start_id`, prefers a direct agent-like child run that matches the target markdown/fingerprint, recursively searches child runs up to a depth of 3, and scans session-level candidate runs for closest matches by reference example, trace id, or nearest start time. If a suitable match is found it returns that run's id; otherwise it returns `start_id` (or a pending agent child id when available and no explicit target was provided).
+        
+        Parameters:
+            start_id (str): The id of the run to start resolution from.
+            depth (int): Current recursion depth used to limit search; callers should not normally set this.
+        
+        Returns:
+            str: The resolved run id to use as the agent run (may be `start_id` if no better match is found).
+        """
         if depth > 3:
             return start_id
         try:

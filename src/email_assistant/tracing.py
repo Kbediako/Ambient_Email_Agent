@@ -71,7 +71,14 @@ _RUN_TREE_PATCHED = False
 
 
 def _resolve_current_root() -> Any | None:
-    """Return the active root run if available."""
+    """
+    Resolve the active LangSmith root run if one is available.
+    
+    Attempts to obtain the current run tree and return its topmost parent; if no active run tree can be resolved, returns the cached root run value.
+    
+    Returns:
+        The active root run object, or `None` if no root run is available.
+    """
 
     if get_current_run_tree is not None:
         try:
@@ -94,7 +101,14 @@ def _resolve_current_root() -> Any | None:
 
 
 def _patch_run_tree_parent_handling() -> None:
-    """Ensure RunTree defaults to the active root when no parent is provided."""
+    """
+    Monkey-patch RunTree.__init__ so that, when no parent is supplied, the new run defaults to the currently active root run.
+    
+    This is idempotent and is a no-op if RunTree is unavailable or the patch has already been applied. The patched initializer:
+    - Injects the active root as `parent_run` when neither `parent_run` nor `parent_run_id` were provided, or when `parent_run` is explicitly `None` and `parent_run_id` is absent.
+    - Calls the original initializer and, on a `TypeError` that may indicate unsupported `parent_run` keyword, retries without `parent_run`.
+    The function mutates RunTree.__init__ and sets the module-level `_RUN_TREE_PATCHED` flag to True.
+    """
 
     global _RUN_TREE_PATCHED
 
@@ -104,6 +118,11 @@ def _patch_run_tree_parent_handling() -> None:
     original_init = RunTree.__init__  # type: ignore[attr-defined]
 
     def _patched_init(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        """
+        Monkey-patched initializer that ensures a new RunTree instance is linked to the active root run when no explicit parent is provided.
+        
+        If neither `parent_run` nor `parent_run_id` is supplied (or if `parent_run` is explicitly None and `parent_run_id` is not provided), this initializer will obtain the current root via `_resolve_current_root()` and inject it as `parent_run` before delegating to the original initializer. If the original initializer raises a `TypeError` due to an unexpected `parent_run` argument, it will retry once without `parent_run`.
+        """
         parent_provided = "parent_run" in kwargs or "parent_run_id" in kwargs
         if not parent_provided:
             parent = _resolve_current_root()
@@ -139,7 +158,12 @@ _patch_run_tree_parent_handling()
 
 
 def current_root_run_id() -> str | None:
-    """Return the active root run identifier if tracing is active."""
+    """
+    Get the active root run identifier when a root run is active.
+    
+    Returns:
+        run_id (str | None): The root run's identifier as a string if a root run exists, `None` otherwise.
+    """
 
     root = _resolve_current_root()
     if root is None:
@@ -151,6 +175,13 @@ def current_root_run_id() -> str | None:
 
 
 def _debug_log(message: str) -> None:
+    """
+    Prints a trace debug message to standard output when tracing debug is enabled.
+    
+    Parameters:
+        message (str): Message text to print. Output is emitted only if the module-level `_TRACE_DEBUG`
+            flag (derived from the EMAIL_ASSISTANT_TRACE_DEBUG environment variable) is true.
+    """
     if _TRACE_DEBUG:
         print(f"[trace-debug] {message}")
 

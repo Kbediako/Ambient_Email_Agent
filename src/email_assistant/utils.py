@@ -12,14 +12,20 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 def format_email_markdown(subject, author, to, email_thread, email_id=None):
-    """Format email details into a nicely formatted markdown string for display
+    """
+    Create a markdown-formatted representation of an email.
     
-    Args:
-        subject: Email subject
-        author: Email sender
-        to: Email recipient
-        email_thread: Email content
-        email_id: Optional email ID (for Gmail API)
+    Includes Subject, From, To, an optional **ID** line when `email_id` is provided, the email thread/body, and a trailing separator.
+    
+    Parameters:
+        subject: Email subject line.
+        author: Email sender.
+        to: Email recipient(s).
+        email_thread: Body or thread content of the email.
+        email_id: Optional identifier to include as an **ID** field.
+    
+    Returns:
+        A markdown string containing the formatted email.
     """
     id_section = f"\n**ID**: {email_id}" if email_id else ""
     
@@ -35,15 +41,18 @@ def format_email_markdown(subject, author, to, email_thread, email_id=None):
 """
 
 def format_gmail_markdown(subject, author, to, email_thread, email_id=None):
-    """Format Gmail email details into a nicely formatted markdown string for display,
-    with HTML to text conversion for HTML content
+    """
+    Builds a markdown representation of a Gmail message, converting HTML bodies to plain text when detected.
     
-    Args:
-        subject: Email subject
-        author: Email sender
-        to: Email recipient
-        email_thread: Email content (possibly HTML)
-        email_id: Optional email ID (for Gmail API)
+    Parameters:
+        subject (str): Email subject line.
+        author (str): Email sender.
+        to (str): Email recipient(s).
+        email_thread (str): Message body; if it appears to contain HTML, it will be converted to plain text.
+        email_id (Optional[str]): Optional message identifier to include in the output.
+    
+    Returns:
+        str: A markdown-formatted string containing Subject, From, To, optional ID, the message body, and a trailing separator.
     """
     id_section = f"\n**ID**: {email_id}" if email_id else ""
     
@@ -72,7 +81,11 @@ def format_gmail_markdown(subject, author, to, email_thread, email_id=None):
 """
 
 def _normalise_tool_args(name: str, raw_args):
-    """Return dict-like args for Agent Inbox formatting and log discarded shapes."""
+    """
+    Normalize tool arguments for display and indicate any discarded input.
+    
+    Returns a tuple of (args_dict, residual). If `raw_args` is already a dict, it is returned as `args_dict` and `residual` is `None`. If `raw_args` is a non-empty list whose first element is a dict, the first element is returned and `residual` is `{"discarded": "<preview>"}`. If `raw_args` is None or any other non-dict shape, an empty dict is returned and `residual` contains a `{"discarded": "<preview>"}` string showing a truncated preview of the original value. The function logs a warning when the input shape is unexpected.
+    """
 
     if isinstance(raw_args, dict):
         return raw_args, None
@@ -104,12 +117,31 @@ def _normalise_tool_args(name: str, raw_args):
 
 
 def _clean_text(value, default="") -> str:
+    """
+    Produce a string representation of `value`, using `default` when `value` is `None` or an empty string.
+    
+    Parameters:
+        value: The value to convert to a string. If `value` is `None` or `""`, `default` is used.
+        default (str): Fallback string returned when `value` is `None` or an empty string.
+    
+    Returns:
+        str: `str(value)` when `value` is not `None` or empty, otherwise `default`.
+    """
     if value in (None, ""):
         return default
     return str(value)
 
 
 def _clean_list(values) -> List[str]:
+    """
+    Normalize a sequence of values into a list of non-empty strings.
+    
+    Parameters:
+        values: A list of items to normalize; non-list inputs produce an empty list.
+    
+    Returns:
+        A list of strings containing the truthy items from `values` converted with `str()`. Falsy items are omitted.
+    """
     if not isinstance(values, list):
         return []
     cleaned: List[str] = []
@@ -121,10 +153,20 @@ def _clean_list(values) -> List[str]:
 
 
 def format_for_display(tool_call):
-    """Format content for display in Agent Inbox
+    """
+    Render a tool call into a human-readable Markdown string for display in the Agent Inbox.
     
-    Args:
-        tool_call: The tool call to format
+    The output adapts to common tool shapes:
+    - For "write_email" or "send_email_tool": returns an Email Draft block with To, Subject, and body.
+    - For "schedule_meeting" or "schedule_meeting_tool": returns a Calendar Invite block with meeting title, attendees, duration, and day/start.
+    - For a tool named "question" (case-insensitive): returns a Question for User block containing the content.
+    - For other tools: returns a Tool Call block showing the tool name and its arguments. If the original arguments had an unexpected shape, a note is appended indicating that some original args were discarded.
+    
+    Parameters:
+        tool_call (dict-like): Mapping-like object representing the tool call; expected to contain at least a `name` and optionally `args`.
+    
+    Returns:
+        str: A Markdown-formatted string representing the tool call for display.
     """
     # Initialize empty display
     display = ""
@@ -182,14 +224,13 @@ Arguments:"""
     return display
 
 def parse_email(email_input: dict) -> tuple[str, str, str, str]:
-    """Parse an email input dictionary, accepting multiple common schemas.
-
-    Supports both the repo dataset schema and a Gmail-like schema:
-      - Dataset schema: author, to, subject, email_thread
-      - Gmail-like schema: from, to, subject, body
-
-    Returns (author, to, subject, email_thread). Missing fields are returned as empty strings
-    to keep downstream prompts resilient.
+    """
+    Parse an email-like dictionary and extract the author, recipient, subject, and message thread using common schema variants.
+    
+    Supports the repository dataset schema (author, to, subject, email_thread) and Gmail-like/alternate-capitalization schemas (from/From, To, Subject, body/Body/page_content).
+    
+    Returns:
+        tuple[str, str, str, str]: (author, to, subject, email_thread) where missing values are returned as empty strings.
     """
     if not isinstance(email_input, dict):
         return ("", "", "", "")
