@@ -1,4 +1,4 @@
-# PR30 Review Feedback — 2025-10-02
+# PR30 Review Feedback — 2025-10-01
 
 Curated log of new review feedback (inline, nitpick, and outside-diff comments) on Ambient_Email_Agent#30 after commit faede9a (Oct 2, 2025). Use this checklist to drive follow-up fixes.
 
