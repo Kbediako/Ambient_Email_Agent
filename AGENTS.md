@@ -8,7 +8,7 @@ This project demonstrates an evolving AI email assistant built with LangGraph an
 - Response Agent: The main worker. It uses tools to gather information and draft responses.
 - Tools: The agent has access to tools like `write_email`, `check_calendar_availability`, etc., to perform actions.
 - Human-in-the-Loop (HITL): Later agents introduce approval steps where a human must confirm or edit the AI's proposed actions before execution.
-- Memory: The most advanced agents use a SQLite database (`SqliteSaver`) to maintain persistent memory across interactions, allowing them to recall past conversations.
+- Memory: The most advanced agents use a SQLite database (`SqliteSaver`) to maintain persistent memory across interactions, allowing them to recall past conversations..
 
 ## Agent Implementations
 
